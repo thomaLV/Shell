@@ -126,7 +126,16 @@ namespace Shell
 
             Matrix<double> C = Matrix(ldof);
 
-
+            //Transformationsmatrise (MATLAB)
+            double theta = 0;
+            double s = Math.Sin(theta); double c = Math.Cos(theta);
+            var tMatrix = Matrix<double>.Build.DenseOfArray(new double[,]
+                { 
+                    {Math.Pow(c, 2), Math.Pow(s, 2), -2 * s * c },
+                    {Math.Pow(s, 2), Math.Pow(c, 2), 2 * s * c },
+                    { s * c        , -s * c        , Math.Pow(c, 2) - Math.Pow(s, 2) }
+                });
+            
 
 
 
