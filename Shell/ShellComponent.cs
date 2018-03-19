@@ -62,7 +62,7 @@ namespace Shell
             {
                 faces.Add(face);
             }
-
+            
             foreach (var vertice in mesh.Vertices)
             {
                 vertices.Add(vertice);
@@ -285,7 +285,7 @@ namespace Shell
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
         {
-            List<double> loads = new List<double>(new double[points.Count * 6]);
+            List<double> loads = new List<double>(new double[vertices.Count * 6]);
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
@@ -306,7 +306,7 @@ namespace Shell
 
             foreach (Point3d point in coordlist)
             {
-                int i = points.IndexOf(point);
+                int i = vertices.IndexOf(point);
                 int j = coordlist.IndexOf(point);
                 loads[i * 6 + 0] = inputLoads[j * 3 + 0];
                 loads[i * 6 + 1] = inputLoads[j * 3 + 1];
@@ -332,7 +332,7 @@ namespace Shell
 
             foreach (Point3d point in coordlist)
             {
-                int i = points.IndexOf(point);
+                int i = vertices.IndexOf(point);
                 int j = coordlist.IndexOf(point);
                 loads[i * 6 + 3] = inputLoads[j * 3 + 0];
                 loads[i * 6 + 4] = inputLoads[j * 3 + 1];
@@ -343,7 +343,7 @@ namespace Shell
 
         private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> vertices)
         {
-            List<int> bdc_value = new List<int>(new int[points.Count * 6]);
+            List<int> bdc_value = new List<int>(new int[vertices.Count * 6]);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -368,9 +368,9 @@ namespace Shell
 
 
             //Format to correct entries in bdc_value
-            for (int i = 0; i < points.Count; i++)
+            for (int i = 0; i < vertices.Count; i++)
             {
-                Point3d tempP = points[i];
+                Point3d tempP = vertices[i];
 
                 if (bdc_points.Contains(tempP))
                 {
