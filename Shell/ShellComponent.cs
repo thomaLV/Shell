@@ -101,8 +101,6 @@ namespace Shell
                 Vector<double> load_red;
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
-
-
             }
         }
 
@@ -123,7 +121,7 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
+        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G)
         {
             int gdofs = points.Count * 6;
             Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
@@ -268,7 +266,7 @@ namespace Shell
             return K_tot;
         }
 
-        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> points)
+        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
         {
             List<double> loads = new List<double>(new double[points.Count * 6]);
             List<double> inputLoads = new List<double>();
@@ -326,7 +324,7 @@ namespace Shell
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> points)
+        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> vertices)
         {
             List<int> bdc_value = new List<int>(new int[points.Count * 6]);
             List<int> bdcs = new List<int>();
