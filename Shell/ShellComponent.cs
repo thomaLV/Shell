@@ -126,7 +126,7 @@ namespace Shell
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Point3d> points, double E, double A, double Iy, double Iz, double J, double G)
         {
 
-            Matrix<double> C =new DenseMatrix<double>();
+            Matrix<double> C = Matrix(ldof);
 
 
 
