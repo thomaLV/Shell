@@ -22,7 +22,7 @@ namespace Shell
         {
             pManager.AddMeshParameter("IsoMesh", "IM", "The shell 6-node element isoparametric mesh, made by IsoMesher component", GH_ParamAccess.item);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300");
+            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300,0.3");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
             pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
             pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
@@ -79,7 +79,8 @@ namespace Shell
                 double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
                 double J;       //Polar moment of inertia
                 double G;       //Shear modulus, initial value 79300 [mm^4]
-                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G);
+                double nu;      //Poisson's ratio, initially 0.3
+                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu);
 
 
                 #region Prepares boundary conditions and loads for calculation
@@ -121,21 +122,18 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G)
+        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu)
         {
+            int ldof = 6;
+            Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
+            {  1/E, -nu/E, -nu/E},
+            { },
+            { },
 
-            Matrix<double> C = Matrix(ldof);
-
-            //Transformationsmatrise (MATLAB)
-            double theta = 0;
-            double s = Math.Sin(theta); double c = Math.Cos(theta);
-            var tMatrix = Matrix<double>.Build.DenseOfArray(new double[,]
-                { 
-                    {Math.Pow(c, 2), Math.Pow(s, 2), -2 * s * c },
-                    {Math.Pow(s, 2), Math.Pow(c, 2), 2 * s * c },
-                    { s * c        , -s * c        , Math.Pow(c, 2) - Math.Pow(s, 2) }
                 });
-            
+            int eta = 0;
+            int eps = 0;
+
 
 
 
@@ -396,7 +394,7 @@ namespace Shell
             return bdc_value;
         }
 
-        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G)
+        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G, out double nu)
         {
             string[] matProp = (mattxt.Split(','));
 
@@ -405,6 +403,7 @@ namespace Shell
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
+            nu = (Math.Round(double.Parse(matProp[5], 3));
             J = Iy + Iz;
         }
 
