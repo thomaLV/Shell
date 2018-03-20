@@ -58,11 +58,13 @@ namespace Shell
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref startCalc)) return;      //sets the boolean value for running the calculations
 
+            if (!startCalc) return; //send return if startCalc is false
+
             foreach (var face in mesh.Faces)
             {
                 faces.Add(face);
             }
-            
+
             foreach (var vertice in mesh.Vertices)
             {
                 vertices.Add(vertice);
@@ -70,39 +72,37 @@ namespace Shell
 
             #endregion
 
-            if (startCalc)
-            {
-                //Interpret and set material parameters
-                double E;       //Material Young's modulus, initial value 210000 [MPa]
-                double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-                double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-                double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-                double J;       //Polar moment of inertia
-                double G;       //Shear modulus, initial value 79300 [mm^4]
-                double nu;      //Poisson's ratio, initially 0.3
-                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu);
+            //Interpret and set material parameters
+            double E;       //Material Young's modulus, initial value 210000 [MPa]
+            double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
+            double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
+            double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
+            double J;       //Polar moment of inertia
+            double G;       //Shear modulus, initial value 79300 [mm^4]
+            double nu;      //Poisson's ratio, initially 0.3
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu);
 
 
-                #region Prepares boundary conditions and loads for calculation
+            #region Prepares boundary conditions and loads for calculation
 
-                //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-                List<int> bdc_value = CreateBDCList(bdctxt, vertices);
+            //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
+            List<int> bdc_value = CreateBDCList(bdctxt, vertices);
 
 
-                //Interpreting input load (text) and creating load list (do uble)
-                List<double> load = CreateLoadList(loadtxt, momenttxt, vertices);
-                #endregion
+            //Interpreting input load (text) and creating load list (do uble)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, vertices);
+            #endregion
 
-                #region Create global and reduced stiffness matrix
-                //Create global stiffness matrix
-                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
+            #region Create global and reduced stiffness matrix
+            //Create global stiffness matrix
+            Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
 
-                //Create reduced K-matrix and reduced load list (removed free dofs)
-                Matrix<double> K_red;
-                Vector<double> load_red;
-                CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
-                #endregion
-            }
+            //Create reduced K-matrix and reduced load list (removed free dofs)
+            Matrix<double> K_red;
+            Vector<double> load_red;
+            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+            #endregion
+
         }
 
         private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
