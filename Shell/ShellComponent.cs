@@ -95,7 +95,7 @@ namespace Shell
 
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
-                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G);
+                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
 
                 //Create reduced K-matrix and reduced load list (removed free dofs)
                 Matrix<double> K_red;
