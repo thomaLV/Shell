@@ -380,8 +380,8 @@ namespace Shell
                 //}
                 #endregion
 
-                return KG;
             }
+            return KG;
         }
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
@@ -504,7 +504,7 @@ namespace Shell
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
-            nu = (Math.Round(double.Parse(matProp[5], 3));
+            nu = (Math.Round(double.Parse(matProp[5]), 2));
             J = Iy + Iz;
         }
 
