@@ -122,17 +122,94 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
+        private static int GetGdofs(List<Point3d> vertices)
+        {
+            int uniqueNodes = 0;
+            foreach (var node in vertices)
+            {
+                if (true)
+                {
+                    //copy from pointlistmethod
+                }
+            }
+            return 1;
+        } 
+
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu)
         {
             int ldof = 6;
-            Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
-            {  1/E, -nu/E, -nu/E},
-            { },
-            { },
+            int gdofs = GetGdofs(vertices);
+            var K_tot = Matrix<double>.Build.Dense(gdofs, gdofs);
 
+            for (int index = 0; index < vertices.Count / 3; index++)
+            {
+
+                double y1 = vertices[index    ].Y;
+                double y2 = vertices[index + 1].Y;
+                double y3 = vertices[index + 2].Y;
+
+                double x1 = vertices[index    ].X;
+                double x2 = vertices[index + 1].X;
+                double x3 = vertices[index + 2].X;
+
+                double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
+
+                var B = Matrix<double>.Build.DenseOfArray(new double[,]
+                {
+                    {y2 - y3, 0, y3 - y1, 0, y1 - y2, 0},
+                    {0, x3 - x2, 0, x1 -x3, 0,  x2 - x1},
+                    {x3 - x2, y2 - y3, x1 -x3, y3 - y1, x2 - x1, y1 - y2 }
                 });
-            int eta = 0;
-            int eps = 0;
+                B *= 1 / detJ;
+
+                double area = Math.Abs(detJ) / 2;
+
+                var D = Matrix<double>.Build.DenseOfArray(new double[,]
+                {
+                {1, nu, 0 },
+                {nu, 1, 0 },
+                {0, 0, (1-nu)/2 }
+                });
+                D *= E / (1 - Math.Pow(nu, 2)); //assuming constant E
+
+                var K_elem = Matrix<double>.Build.Dense(3 * ldof, 3 * ldof);
+
+
+                //Inputting values to correct entries in Global Stiffness Matrix
+                for (int i = 0; i < K_elem.RowCount / 2; i++)
+                {
+                    //top left 3x3 of k-element matrix
+                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    {
+                        K_tot[index * 6 + i, index * 6 + j] += K_elem[i, j];
+                    }
+                    //top right 3x3 of k-element matrix  
+                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    {
+                        K_tot[index * 6 + i, index + 1 * 6 + j] += K_elem[i, j + 6];
+                    }
+                    //bottom left 3x3 of k-element matrix
+                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    {
+                        K_tot[index + 1 * 6 + i, index * 6 + j] += K_elem[i + 6, j];
+                    }
+                    //bottom right 3x3 of k-element matrix
+                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    {
+                        K_tot[index + 1 * 6 + i, index + 1 * 6 + j] += K_elem[i + 6, j + 6];
+                    }
+                }
+            }
+
+
+            //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
+            //{  1/E, -nu/E, -nu/E},
+            //{ },
+            //{ },
+
+            //    });
+            //int eta = 0;
+            //int eps = 0;
 
 
 
