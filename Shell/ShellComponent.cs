@@ -125,9 +125,9 @@ namespace Shell
         private static int GetGdofs(List<Point3d> vertices)
         {
             List<Point3d> uniqueNodes = new List<Point3d>();
-            foreach (var node in vertices)
+            for (int i = 0; i < vertices.Count; i++)
             {
-                Point3d tempNode = new Point3d(Math.Round(node.X, 2), Math.Round(node.Y, 2), Math.Round(node.Z, 2));
+                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 2), Math.Round(vertices[i].Y, 2), Math.Round(vertices[i].Z, 2));
                 if (!uniqueNodes.Contains(tempNode))
                 {
                     uniqueNodes.Add(tempNode);
