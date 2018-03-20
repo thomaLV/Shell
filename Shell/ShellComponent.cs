@@ -167,7 +167,7 @@ namespace Shell
                 });
                 B *= 1 / detJ;
                 var BT = B.Transpose();
-                
+
                 double area = Math.Abs(detJ) / 2;
 
                 var D = Matrix<double>.Build.DenseOfArray(new double[,]
@@ -186,44 +186,28 @@ namespace Shell
                     for (int col = 0; col < kE.ColumnCount / 3; col++)
                     {
                         //top left 3x3 of k-element matrix
-                        KG[index * 6       + row, index       * 6 + col]       += kE[row, col];
+                        KG[index * 6 + row, index * 6 + col] += kE[row, col];
                         //top middle 3x3 of k-element matrix
-                        KG[index * 6       + row, (index + 1) * 6 + col]       += kE[row, col + 6];
+                        KG[index * 6 + row, (index + 1) * 6 + col] += kE[row, col + 6];
                         //top right 3x3 of k-element matrix  
-                        KG[index * 6       + row, (index + 2) * 6 + col]       += kE[row, col + 12];
+                        KG[index * 6 + row, (index + 2) * 6 + col] += kE[row, col + 12];
 
                         //middle left 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, index       * 6 + col] += kE[row + 6, col];
+                        KG[(index + 1) * 6 + row, index * 6 + col] += kE[row + 6, col];
                         //middle middle 3x3 of k-element matrix
                         KG[(index + 1) * 6 + row, (index + 1) * 6 + col] += kE[row + 6, col + 6];
                         //middle right 3x3 of k-element matrix
                         KG[(index + 1) * 6 + row, (index + 2) * 6 + col] += kE[row + 6, col + 12];
 
                         //bottom left 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, index       * 6 + col] += kE[row + 12, col];
+                        KG[(index + 2) * 6 + row, index * 6 + col] += kE[row + 12, col];
                         //bottom middle 3x3 of k-element matrix
                         KG[(index + 2) * 6 + row, (index + 1) * 6 + col] += kE[row + 12, col + 6];
                         //bottom right 3x3 of k-element matrix
                         KG[(index + 2) * 6 + row, (index + 2) * 6 + col] += kE[row + 12, col + 12];
                     }
+                    //UNTESTED!!!
                 }
-
-                ////inputting values to correct entries in global stiffness matrix
-                //for (int row = 0; row < k_elem.rowcount / 2; row++)
-                //{
-                //    for (int col = 0; col < k_elem.columncount / 2; col++)
-                //    {
-                //        //top left 3x3 of k-element matrix
-                //        k_tot[index * 6 + row, index * 6 + col] += k_elem[row, col];
-                //        //top right 3x3 of k-element matrix  
-                //        k_tot[index * 6 + row, index + 1 * 6 + col] += k_elem[row, col + 6];
-                //        //bottom left 3x3 of k-element matrix
-                //        k_tot[index + 1 * 6 + row, index * 6 + col] += k_elem[row + 6, col];
-                //        //bottom right 3x3 of k-element matrix
-                //        k_tot[index + 1 * 6 + row, index + 1 * 6 + col] += k_elem[row + 6, col + 6];
-                //    }
-                //}
-
 
                 //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
                 //{  1/E, -nu/E, -nu/E},
@@ -233,9 +217,6 @@ namespace Shell
                 //    });
                 //int eta = 0;
                 //int eps = 0;
-
-
-
 
                 #region old kmatrix code
                 //int gdofs = points.Count * 6;
@@ -382,6 +363,9 @@ namespace Shell
 
             }
             return KG;
+            //NB! Consider calculating stresses and strains via this function to optimise calculation time!
+            // el strain = Bq, el stress = DBq 
+            //would be fastest to call calcstress&strain-method from this method since B is not saved outside this method!
         }
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
