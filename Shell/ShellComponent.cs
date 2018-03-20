@@ -146,7 +146,7 @@ namespace Shell
             //temp t (until input is set up)
             double t = 100;
 
-            for (int index = 0; index < vertices.Count / 3; index++)
+            for (int index = 0; index < vertices.Count / 3; index += 3)
             {
                 //Following method from 2D Triangular Elements (so incomplete for 3D elements)
                 double y1 = vertices[index].Y;
@@ -161,6 +161,7 @@ namespace Shell
                 //double z2 = vertices[index + 1].Z;
                 //double z3 = vertices[index + 2].Z;
 
+                // Jacobian determinant (numerical)
                 double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
 
                 var B = Matrix<double>.Build.DenseOfArray(new double[,]
