@@ -157,6 +157,10 @@ namespace Shell
                 double x2 = vertices[index + 1].X;
                 double x3 = vertices[index + 2].X;
 
+                //double z1 = vertices[index].Z;
+                //double z2 = vertices[index + 1].Z;
+                //double z3 = vertices[index + 2].Z;
+
                 double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
 
                 var B = Matrix<double>.Build.DenseOfArray(new double[,]
@@ -488,7 +492,7 @@ namespace Shell
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
-            nu = (Math.Round(double.Parse(matProp[5]), 2));
+            nu = (Math.Round(double.Parse(matProp[5]), 3));
             J = Iy + Iz;
         }
 
