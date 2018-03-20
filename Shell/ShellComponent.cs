@@ -124,16 +124,17 @@ namespace Shell
 
         private static int GetGdofs(List<Point3d> vertices)
         {
-            int uniqueNodes = 0;
+            List<Point3d> uniqueNodes = new List<Point3d>();
             foreach (var node in vertices)
             {
-                if (true)
+                Point3d tempNode = new Point3d(Math.Round(node.X, 2), Math.Round(node.Y, 2), Math.Round(node.Z, 2));
+                if (!uniqueNodes.Contains(tempNode))
                 {
-                    //copy from pointlistmethod
+                    uniqueNodes.Add(tempNode);
                 }
             }
-            return 1;
-        } 
+            return uniqueNodes.Count;
+        }
 
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu)
         {
