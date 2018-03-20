@@ -144,7 +144,7 @@ namespace Shell
 
             for (int index = 0; index < vertices.Count / 3; index++)
             {
-
+                //Following method from 2D Triangular Elements (so incomplete for 3D elements)
                 double y1 = vertices[index    ].Y;
                 double y2 = vertices[index + 1].Y;
                 double y3 = vertices[index + 2].Y;
@@ -177,27 +177,27 @@ namespace Shell
 
 
                 //Inputting values to correct entries in Global Stiffness Matrix
-                for (int i = 0; i < K_elem.RowCount / 2; i++)
+                for (int row = 0; row < K_elem.RowCount / 2; row++)
                 {
                     //top left 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    for (int col = 0; col < K_elem.ColumnCount / 2; col++)
                     {
-                        K_tot[index * 6 + i, index * 6 + j] += K_elem[i, j];
+                        K_tot[index * 6 + row, index * 6 + col] += K_elem[row, col];
                     }
                     //top right 3x3 of k-element matrix  
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    for (int col = 0; col < K_elem.ColumnCount / 2; col++)
                     {
-                        K_tot[index * 6 + i, index + 1 * 6 + j] += K_elem[i, j + 6];
+                        K_tot[index * 6 + row, index + 1 * 6 + col] += K_elem[row, col + 6];
                     }
                     //bottom left 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    for (int col = 0; col < K_elem.ColumnCount / 2; col++)
                     {
-                        K_tot[index + 1 * 6 + i, index * 6 + j] += K_elem[i + 6, j];
+                        K_tot[index + 1 * 6 + row, index * 6 + col] += K_elem[row + 6, col];
                     }
                     //bottom right 3x3 of k-element matrix
-                    for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                    for (int col = 0; col < K_elem.ColumnCount / 2; col++)
                     {
-                        K_tot[index + 1 * 6 + i, index + 1 * 6 + j] += K_elem[i + 6, j + 6];
+                        K_tot[index + 1 * 6 + row, index + 1 * 6 + col] += K_elem[row + 6, col + 6];
                     }
                 }
             }
