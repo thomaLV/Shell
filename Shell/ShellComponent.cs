@@ -145,19 +145,19 @@ namespace Shell
             //temp t (until input is set up)
             double t = 100;
 
-            for (int index = 0; index < vertices.Count / 3; index += 3)
+            for (int verticeIndex = 0; verticeIndex < vertices.Count / 3; verticeIndex += 3)
             {
-                double y1 = vertices[index].Y;
-                double y2 = vertices[index + 1].Y;
-                double y3 = vertices[index + 2].Y;
+                double y1 = vertices[verticeIndex].Y;
+                double y2 = vertices[verticeIndex + 1].Y;
+                double y3 = vertices[verticeIndex + 2].Y;
 
-                double x1 = vertices[index].X;
-                double x2 = vertices[index + 1].X;
-                double x3 = vertices[index + 2].X;
+                double x1 = vertices[verticeIndex].X;
+                double x2 = vertices[verticeIndex + 1].X;
+                double x3 = vertices[verticeIndex + 2].X;
 
-                double z1 = vertices[index].Z;
-                double z2 = vertices[index + 1].Z;
-                double z3 = vertices[index + 2].Z;
+                double z1 = vertices[verticeIndex].Z;
+                double z2 = vertices[verticeIndex + 1].Z;
+                double z3 = vertices[verticeIndex + 2].Z;
 
                 double divident = x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1;
 
@@ -206,33 +206,33 @@ namespace Shell
 
 
 
-
+                int verticesPerFace = 3; //since triangle
 
                 //Inputting values to correct entries in Global Stiffness Matrix
-                for (int row = 0; row < KE.RowCount / 3; row++)
+                for (int row = 0; row < KE.RowCount / verticesPerFace; row++)
                 {
-                    for (int col = 0; col < KE.ColumnCount / 3; col++)
+                    for (int col = 0; col < KE.ColumnCount / verticesPerFace; col++)
                     {
-                        //top left 3x3 of k-element matrix
-                        KG[index * ldof + row, index * ldof + col] += KE[row, col];
+                        //top left 3x3 of K-element matrix
+                        KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += KE[row, col];
                         //top middle 3x3 of k-element matrix
-                        KG[index * 6 + row, (index + 1) * 6 + col] += KE[row, col + 6];
+                        KG[verticeIndex * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row, col + ldof];
                         //top right 3x3 of k-element matrix  
-                        KG[index * 6 + row, (index + 2) * 6 + col] += KE[row, col + 12];
+                        KG[verticeIndex * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row, col + ldof * 2];
 
                         //middle left 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, index * 6 + col] += KE[row + 6, col];
+                        KG[(verticeIndex + 1) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof, col];
                         //middle middle 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, (index + 1) * 6 + col] += KE[row + 6, col + 6];
+                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof, col + ldof];
                         //middle right 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, (index + 2) * 6 + col] += KE[row + 6, col + 12];
+                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof, col + ldof * 2];
 
                         //bottom left 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, index * 6 + col] += KE[row + 12, col];
+                        KG[(verticeIndex + 2) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof * 2, col];
                         //bottom middle 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, (index + 1) * 6 + col] += KE[row + 12, col + 6];
+                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof * 2, col + ldof];
                         //bottom right 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, (index + 2) * 6 + col] += KE[row + 12, col + 12];
+                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof * 2, col + ldof * 2];
                     }
                     //UNTESTED!!!
                 }
