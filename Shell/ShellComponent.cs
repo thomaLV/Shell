@@ -69,7 +69,6 @@ namespace Shell
             {
                 vertices.Add(vertice);
             }
-
             #endregion
 
             //Interpret and set material parameters
@@ -141,14 +140,13 @@ namespace Shell
             int ldof = 6;
             int gdofs = GetGdofs(vertices);
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
-            var kE = Matrix<double>.Build.Dense(3 * ldof, 3 * ldof);
+            var KE = Matrix<double>.Build.Dense(3 * ldof, 3 * ldof);
 
             //temp t (until input is set up)
             double t = 100;
 
             for (int index = 0; index < vertices.Count / 3; index += 3)
             {
-                //Following method from 2D Triangular Elements (so incomplete for 3D elements)
                 double y1 = vertices[index].Y;
                 double y2 = vertices[index + 1].Y;
                 double y3 = vertices[index + 2].Y;
@@ -157,59 +155,84 @@ namespace Shell
                 double x2 = vertices[index + 1].X;
                 double x3 = vertices[index + 2].X;
 
-                //double z1 = vertices[index].Z;
-                //double z2 = vertices[index + 1].Z;
-                //double z3 = vertices[index + 2].Z;
+                double z1 = vertices[index].Z;
+                double z2 = vertices[index + 1].Z;
+                double z3 = vertices[index + 2].Z;
 
-                // Jacobian determinant (numerical)
-                double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
+                double divident = x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1;
+
+                var epsilon = Matrix<double>.Build.DenseOfArray(new double[,]
+                {
+                    { 1, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    { 0, 0, 0, 0, 1, 0, 0, 0, 0 },
+                    { 0, 1, 0, 1, 0, 0, 0, 0, 0 }
+                });
 
                 var B = Matrix<double>.Build.DenseOfArray(new double[,]
                 {
-                    {y2 - y3, 0, y3 - y1, 0, y1 - y2, 0},
-                    {0, x3 - x2, 0, x1 -x3, 0,  x2 - x1},
-                    {x3 - x2, y2 - y3, x1 -x3, y3 - y1, x2 - x1, y1 - y2 }
+                    { y2 * z3 - y3 * z2, 0, 0, y3 * z1 - y1 * z3, 0, 0, y1 * z2 - y2 * z1, 0, 0 },
+                    { 0, x3 * z2 - x2 * z3, 0, 0, x1 * z3 - x3 * z1, 0, 0, x2 * z1 - x1 * z2, 0 },
+                    { x3 * z2 - x2 * z3, y2 * z3 - y3 * z2, 0, x1 * z3 - x3 * z1, y3 * z1 - y1 * z3, 0, x2 * z1 - x1 * z2, y1 * z2 - y2 * z1, 0 }
                 });
-                B *= 1 / detJ;
+                B /= divident;
+
                 var BT = B.Transpose();
 
-                double area = Math.Abs(detJ) / 2;
+                double area = 1/2*Math.Sqrt(Math.Pow(x2*y3-x3*y2, 2) + Math.Pow(x3*y1-x1*y3, 2) + Math.Pow(x1*y2-x2*y1, 2));
 
                 var D = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
-                {1, nu, 0 },
-                {nu, 1, 0 },
-                {0, 0, (1-nu)/2 }
-                });
+                    {
+                        {1, nu, 0 },
+                        {nu, 1, 0 },
+                        {0, 0, (1-nu)/2 }
+                    });
+
                 D *= E / (1 - Math.Pow(nu, 2)); //assuming constant E
 
-                kE = t * area * BT * D * B;
+                KE = BT * D * B * area * t;
+
+
+                //Following method from 2D Triangular Elements (so incomplete for 3D elements)
+                // Jacobian determinant (numerical)
+                // double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
+
+                //var B = Matrix<double>.Build.DenseOfArray(new double[,]
+                //{
+                //    {y2 - y3, 0, y3 - y1, 0, y1 - y2, 0},
+                //    {0, x3 - x2, 0, x1 -x3, 0,  x2 - x1},
+                //    {x3 - x2, y2 - y3, x1 -x3, y3 - y1, x2 - x1, y1 - y2 }
+                //});
+                //B *= 1 / detJ;
+
+
+
+
 
                 //Inputting values to correct entries in Global Stiffness Matrix
-                for (int row = 0; row < kE.RowCount / 3; row++)
+                for (int row = 0; row < KE.RowCount / 3; row++)
                 {
-                    for (int col = 0; col < kE.ColumnCount / 3; col++)
+                    for (int col = 0; col < KE.ColumnCount / 3; col++)
                     {
                         //top left 3x3 of k-element matrix
-                        KG[index * 6 + row, index * 6 + col] += kE[row, col];
+                        KG[index * ldof + row, index * ldof + col] += KE[row, col];
                         //top middle 3x3 of k-element matrix
-                        KG[index * 6 + row, (index + 1) * 6 + col] += kE[row, col + 6];
+                        KG[index * 6 + row, (index + 1) * 6 + col] += KE[row, col + 6];
                         //top right 3x3 of k-element matrix  
-                        KG[index * 6 + row, (index + 2) * 6 + col] += kE[row, col + 12];
+                        KG[index * 6 + row, (index + 2) * 6 + col] += KE[row, col + 12];
 
                         //middle left 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, index * 6 + col] += kE[row + 6, col];
+                        KG[(index + 1) * 6 + row, index * 6 + col] += KE[row + 6, col];
                         //middle middle 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, (index + 1) * 6 + col] += kE[row + 6, col + 6];
+                        KG[(index + 1) * 6 + row, (index + 1) * 6 + col] += KE[row + 6, col + 6];
                         //middle right 3x3 of k-element matrix
-                        KG[(index + 1) * 6 + row, (index + 2) * 6 + col] += kE[row + 6, col + 12];
+                        KG[(index + 1) * 6 + row, (index + 2) * 6 + col] += KE[row + 6, col + 12];
 
                         //bottom left 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, index * 6 + col] += kE[row + 12, col];
+                        KG[(index + 2) * 6 + row, index * 6 + col] += KE[row + 12, col];
                         //bottom middle 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, (index + 1) * 6 + col] += kE[row + 12, col + 6];
+                        KG[(index + 2) * 6 + row, (index + 1) * 6 + col] += KE[row + 12, col + 6];
                         //bottom right 3x3 of k-element matrix
-                        KG[(index + 2) * 6 + row, (index + 2) * 6 + col] += kE[row + 12, col + 12];
+                        KG[(index + 2) * 6 + row, (index + 2) * 6 + col] += KE[row + 12, col + 12];
                     }
                     //UNTESTED!!!
                 }
