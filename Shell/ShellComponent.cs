@@ -58,51 +58,50 @@ namespace Shell
             if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
             if (!DA.GetData(5, ref startCalc)) return;      //sets the boolean value for running the calculations
 
+            if (!startCalc) return; //send return if startCalc is false
+
             foreach (var face in mesh.Faces)
             {
                 faces.Add(face);
             }
-            
+
             foreach (var vertice in mesh.Vertices)
             {
                 vertices.Add(vertice);
             }
-
             #endregion
 
-            if (startCalc)
-            {
-                //Interpret and set material parameters
-                double E;       //Material Young's modulus, initial value 210000 [MPa]
-                double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-                double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-                double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-                double J;       //Polar moment of inertia
-                double G;       //Shear modulus, initial value 79300 [mm^4]
-                double nu;      //Poisson's ratio, initially 0.3
-                SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu);
+            //Interpret and set material parameters
+            double E;       //Material Young's modulus, initial value 210000 [MPa]
+            double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
+            double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
+            double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
+            double J;       //Polar moment of inertia
+            double G;       //Shear modulus, initial value 79300 [mm^4]
+            double nu;      //Poisson's ratio, initially 0.3
+            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu);
 
 
-                #region Prepares boundary conditions and loads for calculation
+            #region Prepares boundary conditions and loads for calculation
 
-                //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-                List<int> bdc_value = CreateBDCList(bdctxt, vertices);
+            //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
+            List<int> bdc_value = CreateBDCList(bdctxt, vertices);
 
 
-                //Interpreting input load (text) and creating load list (do uble)
-                List<double> load = CreateLoadList(loadtxt, momenttxt, vertices);
-                #endregion
+            //Interpreting input load (text) and creating load list (do uble)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, vertices);
+            #endregion
 
-                #region Create global and reduced stiffness matrix
-                //Create global stiffness matrix
-                Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
+            #region Create global and reduced stiffness matrix
+            //Create global stiffness matrix
+            Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
 
-                //Create reduced K-matrix and reduced load list (removed free dofs)
-                Matrix<double> K_red;
-                Vector<double> load_red;
-                CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
-                #endregion
-            }
+            //Create reduced K-matrix and reduced load list (removed free dofs)
+            Matrix<double> K_red;
+            Vector<double> load_red;
+            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+            #endregion
+
         }
 
         private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
@@ -122,165 +121,279 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
+        private static int GetGdofs(List<Point3d> vertices)
+        {
+            List<Point3d> uniqueNodes = new List<Point3d>();
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 2), Math.Round(vertices[i].Y, 2), Math.Round(vertices[i].Z, 2));
+                if (!uniqueNodes.Contains(tempNode))
+                {
+                    uniqueNodes.Add(tempNode);
+                }
+            }
+            return uniqueNodes.Count;
+        }
+
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu)
         {
             int ldof = 6;
-            Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
-            {  1/E, -nu/E, -nu/E},
-            { },
-            { },
+            int gdofs = GetGdofs(vertices);
+            var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
+            var KE = Matrix<double>.Build.Dense(3 * ldof, 3 * ldof);
 
+            //temp t (until input is set up)
+            double t = 100;
+
+            for (int verticeIndex = 0; verticeIndex < vertices.Count / 3; verticeIndex += 3)
+            {
+                double y1 = vertices[verticeIndex].Y;
+                double y2 = vertices[verticeIndex + 1].Y;
+                double y3 = vertices[verticeIndex + 2].Y;
+
+                double x1 = vertices[verticeIndex].X;
+                double x2 = vertices[verticeIndex + 1].X;
+                double x3 = vertices[verticeIndex + 2].X;
+
+                double z1 = vertices[verticeIndex].Z;
+                double z2 = vertices[verticeIndex + 1].Z;
+                double z3 = vertices[verticeIndex + 2].Z;
+
+                double divident = x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1;
+
+                var epsilon = Matrix<double>.Build.DenseOfArray(new double[,]
+                {
+                    { 1, 0, 0, 0, 0, 0, 0, 0, 0 },
+                    { 0, 0, 0, 0, 1, 0, 0, 0, 0 },
+                    { 0, 1, 0, 1, 0, 0, 0, 0, 0 }
                 });
-            int eta = 0;
-            int eps = 0;
+
+                var B = Matrix<double>.Build.DenseOfArray(new double[,]
+                {
+                    { y2 * z3 - y3 * z2, 0, 0, y3 * z1 - y1 * z3, 0, 0, y1 * z2 - y2 * z1, 0, 0 },
+                    { 0, x3 * z2 - x2 * z3, 0, 0, x1 * z3 - x3 * z1, 0, 0, x2 * z1 - x1 * z2, 0 },
+                    { x3 * z2 - x2 * z3, y2 * z3 - y3 * z2, 0, x1 * z3 - x3 * z1, y3 * z1 - y1 * z3, 0, x2 * z1 - x1 * z2, y1 * z2 - y2 * z1, 0 }
+                });
+                B /= divident;
+
+                var BT = B.Transpose();
+
+                double area = 1/2*Math.Sqrt(Math.Pow(x2*y3-x3*y2, 2) + Math.Pow(x3*y1-x1*y3, 2) + Math.Pow(x1*y2-x2*y1, 2));
+
+                var D = Matrix<double>.Build.DenseOfArray(new double[,]
+                    {
+                        {1, nu, 0 },
+                        {nu, 1, 0 },
+                        {0, 0, (1-nu)/2 }
+                    });
+
+                D *= E / (1 - Math.Pow(nu, 2)); //assuming constant E
+
+                KE = BT * D * B * area * t;
+
+
+                //Following method from 2D Triangular Elements (so incomplete for 3D elements)
+                // Jacobian determinant (numerical)
+                // double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
+
+                //var B = Matrix<double>.Build.DenseOfArray(new double[,]
+                //{
+                //    {y2 - y3, 0, y3 - y1, 0, y1 - y2, 0},
+                //    {0, x3 - x2, 0, x1 -x3, 0,  x2 - x1},
+                //    {x3 - x2, y2 - y3, x1 -x3, y3 - y1, x2 - x1, y1 - y2 }
+                //});
+                //B *= 1 / detJ;
 
 
 
+                int verticesPerFace = 3; //since triangle
 
-            #region old kmatrix code
-            //int gdofs = points.Count * 6;
-            //Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+                //Inputting values to correct entries in Global Stiffness Matrix
+                for (int row = 0; row < KE.RowCount / verticesPerFace; row++)
+                {
+                    for (int col = 0; col < KE.ColumnCount / verticesPerFace; col++)
+                    {
+                        //top left 3x3 of K-element matrix
+                        KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += KE[row, col];
+                        //top middle 3x3 of k-element matrix
+                        KG[verticeIndex * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row, col + ldof];
+                        //top right 3x3 of k-element matrix  
+                        KG[verticeIndex * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row, col + ldof * 2];
 
-            //foreach (Line currentLine in geometry)
-            //{
-            //    double L = Math.Round(currentLine.Length, 6);
+                        //middle left 3x3 of k-element matrix
+                        KG[(verticeIndex + 1) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof, col];
+                        //middle middle 3x3 of k-element matrix
+                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof, col + ldof];
+                        //middle right 3x3 of k-element matrix
+                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof, col + ldof * 2];
 
-            //    Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-            //    Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+                        //bottom left 3x3 of k-element matrix
+                        KG[(verticeIndex + 2) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof * 2, col];
+                        //bottom middle 3x3 of k-element matrix
+                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof * 2, col + ldof];
+                        //bottom right 3x3 of k-element matrix
+                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof * 2, col + ldof * 2];
+                    }
+                    //UNTESTED!!!
+                }
 
-            //    double alpha = 0;
+                //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
+                //{  1/E, -nu/E, -nu/E},
+                //{ },
+                //{ },
 
-            //    double cx = (p2.X - p1.X) / L;
-            //    double cy = (p2.Y - p1.Y) / L;
-            //    double cz = (p2.Z - p1.Z) / L;
-            //    double c1 = Math.Cos(alpha);
-            //    double s1 = Math.Sin(alpha);
-            //    double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+                //    });
+                //int eta = 0;
+                //int eps = 0;
 
-            //    Matrix<double> gamma;
+                #region old kmatrix code
+                //int gdofs = points.Count * 6;
+                //Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
 
-            //    if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-            //    {
-            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-            //    {
-            //        {      0, cy,  0},
-            //        { -cy*c1,  0, s1},
-            //        {  cy*s1,  0, c1},
-            //    });
-            //    }
-            //    else
-            //    {
-            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-            //    {
-            //        {                     cx,       cy,                   cz},
-            //        {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
-            //        {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-            //    });
-            //    }
+                //foreach (Line currentLine in geometry)
+                //{
+                //    double L = Math.Round(currentLine.Length, 6);
 
-            //    var bd = Matrix<double>.Build;
+                //    Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
+                //    Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
 
-            //    Matrix<double> T1;
-            //    T1 = gamma.Append(bd.Dense(3, 9));
-            //    Matrix<double> T2;
-            //    T2 = bd.Dense(3, 3).Append(gamma);
-            //    T2 = T2.Append(bd.Dense(3, 6));
-            //    Matrix<double> T3;
-            //    T3 = bd.Dense(3, 6).Append(gamma);
-            //    T3 = T3.Append(bd.Dense(3, 3));
-            //    Matrix<double> T4;
-            //    T4 = bd.Dense(3, 9).Append(gamma);
-            //    Matrix<double> T;
-            //    T = T1.Stack(T2);
-            //    T = T.Stack(T3);
-            //    T = T.Stack(T4);
+                //    double alpha = 0;
 
-            //    //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-            //    //{
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //});
+                //    double cx = (p2.X - p1.X) / L;
+                //    double cy = (p2.Y - p1.Y) / L;
+                //    double cz = (p2.Z - p1.Z) / L;
+                //    double c1 = Math.Cos(alpha);
+                //    double s1 = Math.Sin(alpha);
+                //    double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
 
-            //    Matrix<double> T_T = T.Transpose();
+                //    Matrix<double> gamma;
 
-            //    double A1 = (E * A) / (L);
+                //    if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
+                //    {
+                //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                //    {
+                //        {      0, cy,  0},
+                //        { -cy*c1,  0, s1},
+                //        {  cy*s1,  0, c1},
+                //    });
+                //    }
+                //    else
+                //    {
+                //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+                //    {
+                //        {                     cx,       cy,                   cz},
+                //        {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
+                //        {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
+                //    });
+                //    }
 
-            //    double kz1 = (12 * E * Iz) / (L * L * L);
-            //    double kz2 = (6 * E * Iz) / (L * L);
-            //    double kz3 = (4 * E * Iz) / L;
-            //    double kz4 = (2 * E * Iz) / L;
+                //    var bd = Matrix<double>.Build;
 
-            //    double ky1 = (12 * E * Iy) / (L * L * L);
-            //    double ky2 = (6 * E * Iy) / (L * L);
-            //    double ky3 = (4 * E * Iy) / L;
-            //    double ky4 = (2 * E * Iy) / L;
+                //    Matrix<double> T1;
+                //    T1 = gamma.Append(bd.Dense(3, 9));
+                //    Matrix<double> T2;
+                //    T2 = bd.Dense(3, 3).Append(gamma);
+                //    T2 = T2.Append(bd.Dense(3, 6));
+                //    Matrix<double> T3;
+                //    T3 = bd.Dense(3, 6).Append(gamma);
+                //    T3 = T3.Append(bd.Dense(3, 3));
+                //    Matrix<double> T4;
+                //    T4 = bd.Dense(3, 9).Append(gamma);
+                //    Matrix<double> T;
+                //    T = T1.Stack(T2);
+                //    T = T.Stack(T3);
+                //    T = T.Stack(T4);
 
-            //    double C1 = (G * J) / L;
+                //    //Matrix<double> T = SparseMatrix.OfArray(new double[,]
+                //    //{
+                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+                //    //});
 
-            //    Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
-            //    {
-            //        { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
-            //        {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
-            //        {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
-            //        {  0,    0,    0,   C1,    0,    0,    0,    0,    0,  -C1,    0,    0 },
-            //        {  0,    0, -ky2,    0,  ky3,    0,    0,    0,  ky2,    0,  ky4,    0 },
-            //        {  0,  kz2,    0,    0,    0,  kz3,    0, -kz2,    0,    0,    0,  kz4 },
-            //        {-A1,    0,    0,    0,    0,    0,   A1,    0,    0,    0,    0,    0 },
-            //        {  0, -kz1,    0,    0,    0, -kz2,    0,  kz1,    0,    0,    0, -kz2 },
-            //        {  0,    0, -ky1,    0,  ky2,    0,    0,    0,  ky1,    0,  ky2,    0 },
-            //        {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
-            //        {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
-            //        {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
-            //    });
+                //    Matrix<double> T_T = T.Transpose();
 
-            //    K_elem = K_elem.Multiply(T);
-            //    K_elem = T_T.Multiply(K_elem);
+                //    double A1 = (E * A) / (L);
 
-            //    int node1 = points.IndexOf(p1);
-            //    int node2 = points.IndexOf(p2);
+                //    double kz1 = (12 * E * Iz) / (L * L * L);
+                //    double kz2 = (6 * E * Iz) / (L * L);
+                //    double kz3 = (4 * E * Iz) / L;
+                //    double kz4 = (2 * E * Iz) / L;
 
-            //    //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
+                //    double ky1 = (12 * E * Iy) / (L * L * L);
+                //    double ky2 = (6 * E * Iy) / (L * L);
+                //    double ky3 = (4 * E * Iy) / L;
+                //    double ky4 = (2 * E * Iy) / L;
 
-            //    //PrintMatrix(K_elem,"K_elem");
+                //    double C1 = (G * J) / L;
 
-            //    //Inputting values to correct entries in Global Stiffness Matrix
-            //    for (int i = 0; i < K_elem.RowCount / 2; i++)
-            //    {
-            //        //top left 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-            //        }
-            //        //top right 3x3 of k-element matrix  
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-            //        }
-            //        //bottom left 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-            //        }
-            //        //bottom right 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
-            //        }
-            //    }
-            //}
-            #endregion
+                //    Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
+                //    {
+                //        { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
+                //        {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
+                //        {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
+                //        {  0,    0,    0,   C1,    0,    0,    0,    0,    0,  -C1,    0,    0 },
+                //        {  0,    0, -ky2,    0,  ky3,    0,    0,    0,  ky2,    0,  ky4,    0 },
+                //        {  0,  kz2,    0,    0,    0,  kz3,    0, -kz2,    0,    0,    0,  kz4 },
+                //        {-A1,    0,    0,    0,    0,    0,   A1,    0,    0,    0,    0,    0 },
+                //        {  0, -kz1,    0,    0,    0, -kz2,    0,  kz1,    0,    0,    0, -kz2 },
+                //        {  0,    0, -ky1,    0,  ky2,    0,    0,    0,  ky1,    0,  ky2,    0 },
+                //        {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
+                //        {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
+                //        {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
+                //    });
 
-            return K_tot;
+                //    K_elem = K_elem.Multiply(T);
+                //    K_elem = T_T.Multiply(K_elem);
+
+                //    int node1 = points.IndexOf(p1);
+                //    int node2 = points.IndexOf(p2);
+
+                //    //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
+
+                //    //PrintMatrix(K_elem,"K_elem");
+
+                //    //Inputting values to correct entries in Global Stiffness Matrix
+                //    for (int i = 0; i < K_elem.RowCount / 2; i++)
+                //    {
+                //        //top left 3x3 of k-element matrix
+                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                //        {
+                //            K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
+                //        }
+                //        //top right 3x3 of k-element matrix  
+                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                //        {
+                //            K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
+                //        }
+                //        //bottom left 3x3 of k-element matrix
+                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                //        {
+                //            K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
+                //        }
+                //        //bottom right 3x3 of k-element matrix
+                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+                //        {
+                //            K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
+                //        }
+                //    }
+                //}
+                #endregion
+
+            }
+            return KG;
+            //NB! Consider calculating stresses and strains via this function to optimise calculation time!
+            // el strain = Bq, el stress = DBq 
+            //would be fastest to call calcstress&strain-method from this method since B is not saved outside this method!
         }
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
@@ -403,7 +516,7 @@ namespace Shell
             Iy = (Math.Round(double.Parse(matProp[2]), 2));
             Iz = (Math.Round(double.Parse(matProp[3]), 2));
             G = (Math.Round(double.Parse(matProp[4]), 2));
-            nu = (Math.Round(double.Parse(matProp[5], 3));
+            nu = (Math.Round(double.Parse(matProp[5]), 3));
             J = Iy + Iz;
         }
 
