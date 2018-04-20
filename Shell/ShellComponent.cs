@@ -159,50 +159,11 @@ namespace Shell
                 double z2 = vertices[verticeIndex + 1].Z;
                 double z3 = vertices[verticeIndex + 2].Z;
 
-                double divident = x1 * y2 * z3 - x1 * y3 * z2 - x2 * y1 * z3 + x2 * y3 * z1 + x3 * y1 * z2 - x3 * y2 * z1;
-
-                var epsilon = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
-                    { 1, 0, 0, 0, 0, 0, 0, 0, 0 },
-                    { 0, 0, 0, 0, 1, 0, 0, 0, 0 },
-                    { 0, 1, 0, 1, 0, 0, 0, 0, 0 }
-                });
-
-                var B = Matrix<double>.Build.DenseOfArray(new double[,]
-                {
-                    { y2 * z3 - y3 * z2, 0, 0, y3 * z1 - y1 * z3, 0, 0, y1 * z2 - y2 * z1, 0, 0 },
-                    { 0, x3 * z2 - x2 * z3, 0, 0, x1 * z3 - x3 * z1, 0, 0, x2 * z1 - x1 * z2, 0 },
-                    { x3 * z2 - x2 * z3, y2 * z3 - y3 * z2, 0, x1 * z3 - x3 * z1, y3 * z1 - y1 * z3, 0, x2 * z1 - x1 * z2, y1 * z2 - y2 * z1, 0 }
-                });
-                B /= divident;
-
-                var BT = B.Transpose();
-
                 double area = 1/2*Math.Sqrt(Math.Pow(x2*y3-x3*y2, 2) + Math.Pow(x3*y1-x1*y3, 2) + Math.Pow(x1*y2-x2*y1, 2));
 
-                var D = Matrix<double>.Build.DenseOfArray(new double[,]
-                    {
-                        {1, nu, 0 },
-                        {nu, 1, 0 },
-                        {0, 0, (1-nu)/2 }
-                    });
+                //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
 
-                D *= E / (1 - Math.Pow(nu, 2)); //assuming constant E
-
-                KE = BT * D * B * area * t;
-
-
-                //Following method from 2D Triangular Elements (so incomplete for 3D elements)
-                // Jacobian determinant (numerical)
-                // double detJ = (x1 - x3) * (y2 - y3) - (y1 - y3) * (x2 - x3);
-
-                //var B = Matrix<double>.Build.DenseOfArray(new double[,]
-                //{
-                //    {y2 - y3, 0, y3 - y1, 0, y1 - y2, 0},
-                //    {0, x3 - x2, 0, x1 -x3, 0,  x2 - x1},
-                //    {x3 - x2, y2 - y3, x1 -x3, y3 - y1, x2 - x1, y1 - y2 }
-                //});
-                //B *= 1 / detJ;
+                double k11 = -(area * E * t * (Math.Pow((y2 - y3),2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2),2) - ((nu / 2 - 1 / 2) * Math.Pow((x2 - x3),2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2),2))) / (Math.Pow(nu,2) - 1);
 
 
 
