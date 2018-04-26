@@ -155,207 +155,280 @@ namespace Shell
                 double x2 = vertices[verticeIndex + 1].X;
                 double x3 = vertices[verticeIndex + 2].X;
 
+                double[] xyList = new double[6] { x1, x2, x3, y1, y2, y3 };
+
                 double z1 = vertices[verticeIndex].Z;
                 double z2 = vertices[verticeIndex + 1].Z;
                 double z3 = vertices[verticeIndex + 2].Z;
 
-                double area = 1/2*Math.Sqrt(Math.Pow(x2*y3-x3*y2, 2) + Math.Pow(x3*y1-x1*y3, 2) + Math.Pow(x1*y2-x2*y1, 2));
+                double area = 1 / 2 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
 
-                //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
-
-                double k11 = -(area * E * t * (Math.Pow((y2 - y3),2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2),2) - ((nu / 2 - 1 / 2) * Math.Pow((x2 - x3),2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2),2))) / (Math.Pow(nu,2) - 1);
-
+                Matrix<double> ke = CreateElementStiffnessMatrix(xyList, area, E, t, nu);
+                
 
 
-                int verticesPerFace = 3; //since triangle
 
-                //Inputting values to correct entries in Global Stiffness Matrix
-                for (int row = 0; row < KE.RowCount / verticesPerFace; row++)
+            int verticesPerFace = 3; //since triangle
+
+            //Inputting values to correct entries in Global Stiffness Matrix
+            for (int row = 0; row < KE.RowCount / verticesPerFace; row++)
+            {
+                for (int col = 0; col < KE.ColumnCount / verticesPerFace; col++)
                 {
-                    for (int col = 0; col < KE.ColumnCount / verticesPerFace; col++)
-                    {
-                        //top left 3x3 of K-element matrix
-                        KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += KE[row, col];
-                        //top middle 3x3 of k-element matrix
-                        KG[verticeIndex * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row, col + ldof];
-                        //top right 3x3 of k-element matrix  
-                        KG[verticeIndex * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row, col + ldof * 2];
+                    //top left 3x3 of K-element matrix
+                    KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += KE[row, col];
+                    //top middle 3x3 of k-element matrix
+                    KG[verticeIndex * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row, col + ldof];
+                    //top right 3x3 of k-element matrix  
+                    KG[verticeIndex * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row, col + ldof * 2];
 
-                        //middle left 3x3 of k-element matrix
-                        KG[(verticeIndex + 1) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof, col];
-                        //middle middle 3x3 of k-element matrix
-                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof, col + ldof];
-                        //middle right 3x3 of k-element matrix
-                        KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof, col + ldof * 2];
+                    //middle left 3x3 of k-element matrix
+                    KG[(verticeIndex + 1) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof, col];
+                    //middle middle 3x3 of k-element matrix
+                    KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof, col + ldof];
+                    //middle right 3x3 of k-element matrix
+                    KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof, col + ldof * 2];
 
-                        //bottom left 3x3 of k-element matrix
-                        KG[(verticeIndex + 2) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof * 2, col];
-                        //bottom middle 3x3 of k-element matrix
-                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof * 2, col + ldof];
-                        //bottom right 3x3 of k-element matrix
-                        KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof * 2, col + ldof * 2];
-                    }
-                    //UNTESTED!!!
+                    //bottom left 3x3 of k-element matrix
+                    KG[(verticeIndex + 2) * ldof + row, verticeIndex * ldof + col] += KE[row + ldof * 2, col];
+                    //bottom middle 3x3 of k-element matrix
+                    KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 1) * ldof + col] += KE[row + ldof * 2, col + ldof];
+                    //bottom right 3x3 of k-element matrix
+                    KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += KE[row + ldof * 2, col + ldof * 2];
                 }
-
-                //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
-                //{  1/E, -nu/E, -nu/E},
-                //{ },
-                //{ },
-
-                //    });
-                //int eta = 0;
-                //int eps = 0;
-
-                #region old kmatrix code
-                //int gdofs = points.Count * 6;
-                //Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
-
-                //foreach (Line currentLine in geometry)
-                //{
-                //    double L = Math.Round(currentLine.Length, 6);
-
-                //    Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-                //    Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
-
-                //    double alpha = 0;
-
-                //    double cx = (p2.X - p1.X) / L;
-                //    double cy = (p2.Y - p1.Y) / L;
-                //    double cz = (p2.Z - p1.Z) / L;
-                //    double c1 = Math.Cos(alpha);
-                //    double s1 = Math.Sin(alpha);
-                //    double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-                //    Matrix<double> gamma;
-
-                //    if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-                //    {
-                //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-                //    {
-                //        {      0, cy,  0},
-                //        { -cy*c1,  0, s1},
-                //        {  cy*s1,  0, c1},
-                //    });
-                //    }
-                //    else
-                //    {
-                //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-                //    {
-                //        {                     cx,       cy,                   cz},
-                //        {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
-                //        {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-                //    });
-                //    }
-
-                //    var bd = Matrix<double>.Build;
-
-                //    Matrix<double> T1;
-                //    T1 = gamma.Append(bd.Dense(3, 9));
-                //    Matrix<double> T2;
-                //    T2 = bd.Dense(3, 3).Append(gamma);
-                //    T2 = T2.Append(bd.Dense(3, 6));
-                //    Matrix<double> T3;
-                //    T3 = bd.Dense(3, 6).Append(gamma);
-                //    T3 = T3.Append(bd.Dense(3, 3));
-                //    Matrix<double> T4;
-                //    T4 = bd.Dense(3, 9).Append(gamma);
-                //    Matrix<double> T;
-                //    T = T1.Stack(T2);
-                //    T = T.Stack(T3);
-                //    T = T.Stack(T4);
-
-                //    //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-                //    //{
-                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-                //    //});
-
-                //    Matrix<double> T_T = T.Transpose();
-
-                //    double A1 = (E * A) / (L);
-
-                //    double kz1 = (12 * E * Iz) / (L * L * L);
-                //    double kz2 = (6 * E * Iz) / (L * L);
-                //    double kz3 = (4 * E * Iz) / L;
-                //    double kz4 = (2 * E * Iz) / L;
-
-                //    double ky1 = (12 * E * Iy) / (L * L * L);
-                //    double ky2 = (6 * E * Iy) / (L * L);
-                //    double ky3 = (4 * E * Iy) / L;
-                //    double ky4 = (2 * E * Iy) / L;
-
-                //    double C1 = (G * J) / L;
-
-                //    Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
-                //    {
-                //        { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
-                //        {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
-                //        {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
-                //        {  0,    0,    0,   C1,    0,    0,    0,    0,    0,  -C1,    0,    0 },
-                //        {  0,    0, -ky2,    0,  ky3,    0,    0,    0,  ky2,    0,  ky4,    0 },
-                //        {  0,  kz2,    0,    0,    0,  kz3,    0, -kz2,    0,    0,    0,  kz4 },
-                //        {-A1,    0,    0,    0,    0,    0,   A1,    0,    0,    0,    0,    0 },
-                //        {  0, -kz1,    0,    0,    0, -kz2,    0,  kz1,    0,    0,    0, -kz2 },
-                //        {  0,    0, -ky1,    0,  ky2,    0,    0,    0,  ky1,    0,  ky2,    0 },
-                //        {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
-                //        {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
-                //        {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
-                //    });
-
-                //    K_elem = K_elem.Multiply(T);
-                //    K_elem = T_T.Multiply(K_elem);
-
-                //    int node1 = points.IndexOf(p1);
-                //    int node2 = points.IndexOf(p2);
-
-                //    //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
-
-                //    //PrintMatrix(K_elem,"K_elem");
-
-                //    //Inputting values to correct entries in Global Stiffness Matrix
-                //    for (int i = 0; i < K_elem.RowCount / 2; i++)
-                //    {
-                //        //top left 3x3 of k-element matrix
-                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                //        {
-                //            K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-                //        }
-                //        //top right 3x3 of k-element matrix  
-                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                //        {
-                //            K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-                //        }
-                //        //bottom left 3x3 of k-element matrix
-                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                //        {
-                //            K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-                //        }
-                //        //bottom right 3x3 of k-element matrix
-                //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-                //        {
-                //            K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
-                //        }
-                //    }
-                //}
-                #endregion
-
+                //UNTESTED!!!
             }
+
+            //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
+            //{  1/E, -nu/E, -nu/E},
+            //{ },
+            //{ },
+
+            //    });
+            //int eta = 0;
+            //int eps = 0;
+
+            #region old kmatrix code
+            //int gdofs = points.Count * 6;
+            //Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
+
+            //foreach (Line currentLine in geometry)
+            //{
+            //    double L = Math.Round(currentLine.Length, 6);
+
+            //    Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
+            //    Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
+
+            //    double alpha = 0;
+
+            //    double cx = (p2.X - p1.X) / L;
+            //    double cy = (p2.Y - p1.Y) / L;
+            //    double cz = (p2.Z - p1.Z) / L;
+            //    double c1 = Math.Cos(alpha);
+            //    double s1 = Math.Sin(alpha);
+            //    double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
+
+            //    Matrix<double> gamma;
+
+            //    if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
+            //    {
+            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+            //    {
+            //        {      0, cy,  0},
+            //        { -cy*c1,  0, s1},
+            //        {  cy*s1,  0, c1},
+            //    });
+            //    }
+            //    else
+            //    {
+            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
+            //    {
+            //        {                     cx,       cy,                   cz},
+            //        {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
+            //        {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
+            //    });
+            //    }
+
+            //    var bd = Matrix<double>.Build;
+
+            //    Matrix<double> T1;
+            //    T1 = gamma.Append(bd.Dense(3, 9));
+            //    Matrix<double> T2;
+            //    T2 = bd.Dense(3, 3).Append(gamma);
+            //    T2 = T2.Append(bd.Dense(3, 6));
+            //    Matrix<double> T3;
+            //    T3 = bd.Dense(3, 6).Append(gamma);
+            //    T3 = T3.Append(bd.Dense(3, 3));
+            //    Matrix<double> T4;
+            //    T4 = bd.Dense(3, 9).Append(gamma);
+            //    Matrix<double> T;
+            //    T = T1.Stack(T2);
+            //    T = T.Stack(T3);
+            //    T = T.Stack(T4);
+
+            //    //Matrix<double> T = SparseMatrix.OfArray(new double[,]
+            //    //{
+            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
+            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
+            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
+            //    //});
+
+            //    Matrix<double> T_T = T.Transpose();
+
+            //    double A1 = (E * A) / (L);
+
+            //    double kz1 = (12 * E * Iz) / (L * L * L);
+            //    double kz2 = (6 * E * Iz) / (L * L);
+            //    double kz3 = (4 * E * Iz) / L;
+            //    double kz4 = (2 * E * Iz) / L;
+
+            //    double ky1 = (12 * E * Iy) / (L * L * L);
+            //    double ky2 = (6 * E * Iy) / (L * L);
+            //    double ky3 = (4 * E * Iy) / L;
+            //    double ky4 = (2 * E * Iy) / L;
+
+            //    double C1 = (G * J) / L;
+
+            //    Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
+            //    {
+            //        { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
+            //        {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
+            //        {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
+            //        {  0,    0,    0,   C1,    0,    0,    0,    0,    0,  -C1,    0,    0 },
+            //        {  0,    0, -ky2,    0,  ky3,    0,    0,    0,  ky2,    0,  ky4,    0 },
+            //        {  0,  kz2,    0,    0,    0,  kz3,    0, -kz2,    0,    0,    0,  kz4 },
+            //        {-A1,    0,    0,    0,    0,    0,   A1,    0,    0,    0,    0,    0 },
+            //        {  0, -kz1,    0,    0,    0, -kz2,    0,  kz1,    0,    0,    0, -kz2 },
+            //        {  0,    0, -ky1,    0,  ky2,    0,    0,    0,  ky1,    0,  ky2,    0 },
+            //        {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
+            //        {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
+            //        {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
+            //    });
+
+            //    K_elem = K_elem.Multiply(T);
+            //    K_elem = T_T.Multiply(K_elem);
+
+            //    int node1 = points.IndexOf(p1);
+            //    int node2 = points.IndexOf(p2);
+
+            //    //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
+
+            //    //PrintMatrix(K_elem,"K_elem");
+
+            //    //Inputting values to correct entries in Global Stiffness Matrix
+            //    for (int i = 0; i < K_elem.RowCount / 2; i++)
+            //    {
+            //        //top left 3x3 of k-element matrix
+            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+            //        {
+            //            K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
+            //        }
+            //        //top right 3x3 of k-element matrix  
+            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+            //        {
+            //            K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
+            //        }
+            //        //bottom left 3x3 of k-element matrix
+            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+            //        {
+            //            K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
+            //        }
+            //        //bottom right 3x3 of k-element matrix
+            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
+            //        {
+            //            K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
+            //        }
+            //    }
+            //}
+            #endregion
+
+        }
             return KG;
             //NB! Consider calculating stresses and strains via this function to optimise calculation time!
             // el strain = Bq, el stress = DBq 
             //would be fastest to call calcstress&strain-method from this method since B is not saved outside this method!
         }
+
+        private Matrix<double> CreateElementStiffnessMatrix(double[] xylist, double Area)
+        {
+            Matrix<double> ke = Matrix<double>.Build.Dense(12, 12);
+            //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
+            ke[0, 0] = -(Area * E * t * (Math.Pow((y2 - y3), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((x2 - x3), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[0, 1] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[0, 4] = (Area * E * t * (((y1 - y3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x3) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[0, 5] = (Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[0, 8] = -(Area * E * t * (((y1 - y2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x2) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[0, 9] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 0] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 1] = -(Area * E * t * (Math.Pow((x2 - x3), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((y2 - y3), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 4] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 5] = (Area * E * t * (((x1 - x3) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 8] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[1, 9] = -(Area * E * t * (((x1 - x2) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[2, 2] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * (nu * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * (nu * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) - (nu / 2 - 1 / 2) * Math.Pow(((Math.Pow(x32 *, 2)3) / Area ^ 2 - (ga6 * (2 * x13 * y23 + 2 * x32 * Math.Pow(y31),2)(4 * Area ^ 2 * my6)),2)))/ (12 * (Math.Pow(nu, 2) - 1));
+            ke[2, 6] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * (nu * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * (nu * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) - (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5)) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[2, 7] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (nu * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * ga5) + (y23 * y31 * (nu * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * ga5) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[2, 10] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (a5 / ga5 + a6 / my6) * (nu * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2)) + (y23 * y31 * (a5 / ga5 + a6 / my6) * (nu * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[2, 11] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (nu * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * my6) + (y23 * y31 * (nu * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * my6) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[4, 0] = (Area * E * t * (((y1 - y3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x3) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[4, 1] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[4, 4] = -(Area * E * t * (Math.Pow((y1 - y3), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((x1 - x3), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[4, 5] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[4, 8] = (Area * E * t * (((y1 - y2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x2) * (x1 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[4, 9] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 0] = (Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 1] = (Area * E * t * (((x1 - x3) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y3) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 4] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 5] = -(Area * E * t * (Math.Pow((x1 - x3), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((y1 - y3), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 8] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[5, 9] = (Area * E * t * (((x1 - x2) * (x1 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[6, 2] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * (nu * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * (nu * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) - (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5)) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[6, 6] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * (nu * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * (nu * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) - (nu / 2 - 1 / 2) * Math.Pow(((Math.Pow(x13 *, 2)1) / Area ^ 2 - (my5 * (2 * x13 * y23 + 2 * x32 * Math.Pow(y31),2)(4 * Area ^ 2 * ga5)),2)))/ (12 * (Math.Pow(nu, 2) - 1));
+            ke[6, 7] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (nu * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * ga5) + (y23 * y31 * (nu * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * ga5) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[6, 10] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (a5 / ga5 + a6 / my6) * (nu * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2)) + (y23 * y31 * (a5 / ga5 + a6 / my6) * (nu * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[6, 11] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (nu * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * my6) + (y23 * y31 * (nu * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * my6) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[7, 2] = -(Area * E * Math.Pow(t, 3) * (((x13 * x32) / (2 * Math.Pow(Area, 2) * ga5) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + ((y23 * y31) / (2 * Math.Pow(Area, 2) * ga5) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[7, 6] = -(Area * E * Math.Pow(t, 3) * (((x13 * x32) / (2 * Math.Pow(Area, 2) * ga5) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + ((y23 * y31) / (2 * Math.Pow(Area, 2) * ga5) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[7, 7] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * ga5) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * ga5) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / (16 * Math.Pow(Area, 4) * Math.Pow(ga5, 2)) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * ga5) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[7, 10] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * ga5) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * ga5) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6)) / (16 * Math.Pow(Area, 4) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[7, 11] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * ga5) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * my6) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / (16 * Math.Pow(Area, 4) * ga5 * my6) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * ga5) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5))) / (2 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[8, 0] = -(Area * E * t * (((y1 - y2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x2) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[8, 1] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x2 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[8, 4] = (Area * E * t * (((y1 - y2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (x1 - x2) * (x1 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[8, 5] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[8, 8] = -(Area * E * t * (Math.Pow((y1 - y2), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((x1 - x2), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[8, 9] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 0] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x2 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 1] = -(Area * E * t * (((x1 - x2) * (x2 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y2) * (y2 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 4] = (Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x3) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 5] = (Area * E * t * (((x1 - x2) * (x1 - x3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * (y1 - y2) * (y1 - y3)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 8] = -(Area * E * t * (((nu / 2 - 1 / 2) * (x1 - x2) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - (nu * (x1 - x2) * (y1 - y2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[9, 9] = -(Area * E * t * (Math.Pow((x1 - x2), 2) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2) - ((nu / 2 - 1 / 2) * Math.Pow((y1 - y2), 2)) / Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2))) / (Math.Pow(nu, 2) - 1);
+            ke[10, 2] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * ((x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2))) + (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * ((y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2))) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[10, 6] = -(Area * E * Math.Pow(t, 3) * ((Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) * ((x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2))) + (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) * ((y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2))) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[10, 7] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2) * ga5) + (y23 * y31 * ((y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2) * ga5) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6)) / (16 * Math.Pow(Area, 4) * ga5))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[10, 10] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * (a5 / ga5 + a6 / my6) * ((x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2)) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2) * Math.Pow((a5 / ga5 + a6 / my6), 2)) / (16 * Math.Pow(Area, 4)) + (y23 * y31 * (a5 / ga5 + a6 / my6) * ((y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2)))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[10, 11] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2) * my6) + (y23 * y31 * ((y23 * y31 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (nu * x13 * x32 * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)))) / (2 * Math.Pow(Area, 2) * my6) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6)) / (16 * Math.Pow(Area, 4) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[11, 2] = -(Area * E * Math.Pow(t, 3) * (((x13 * x32) / (2 * Math.Pow(Area, 2) * my6) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * (Math.Pow(x32, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) + ((y23 * y31) / (2 * Math.Pow(Area, 2) * my6) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * (Math.Pow(y23, 2) / (2 * Math.Pow(Area, 2)) - (ga6 * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x32 * y23) / Math.Pow(Area, 2) - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * my6))) / (4 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[11, 6] = -(Area * E * Math.Pow(t, 3) * (((x13 * x32) / (2 * Math.Pow(Area, 2) * my6) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * (Math.Pow(x13, 2) / (2 * Math.Pow(Area, 2)) - (my5 * x13 * x32) / (2 * Math.Pow(Area, 2) * ga5)) + ((y23 * y31) / (2 * Math.Pow(Area, 2) * my6) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * (Math.Pow(y31, 2) / (2 * Math.Pow(Area, 2)) - (my5 * y23 * y31) / (2 * Math.Pow(Area, 2) * ga5)) - ((2 * x13 * y23 + 2 * x32 * y31) * (nu / 2 - 1 / 2) * ((x13 * y31) / Math.Pow(Area, 2) - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / (4 * Math.Pow(Area, 2) * ga5))) / (4 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[11, 7] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * my6) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * ga5) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * my6) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * ga5) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / (16 * Math.Pow(Area, 4) * ga5 * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[11, 10] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * my6) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * my6)) * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * my6) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * my6)) * (a5 / ga5 + a6 / my6)) / (2 * Math.Pow(Area, 2)) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2) * (a5 / ga5 + a6 / my6)) / (16 * Math.Pow(Area, 4) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+            ke[11, 11] = -(Area * E * Math.Pow(t, 3) * ((x13 * x32 * ((x13 * x32) / (2 * Math.Pow(Area, 2) * my6) + (nu * y23 * y31) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * my6) - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / (16 * Math.Pow(Area, 4) * Math.Pow(my6, 2)) + (y23 * y31 * ((y23 * y31) / (2 * Math.Pow(Area, 2) * my6) + (nu * x13 * x32) / (2 * Math.Pow(Area, 2) * my6))) / (2 * Math.Pow(Area, 2) * my6))) / (12 * (Math.Pow(nu, 2) - 1));
+
+
+
+            return ke;
+        }
+
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
         {
