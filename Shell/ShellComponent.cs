@@ -95,7 +95,7 @@ namespace Shell
 
             #region Create global and reduced stiffness matrix
             //Create global stiffness matrix
-            Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu);
+            Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu, 1);
 
             //Create reduced K-matrix and reduced load list (removed free dofs)
             Matrix<double> K_red;
@@ -136,15 +136,11 @@ namespace Shell
             return uniqueNodes.Count;
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu)
+        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
             int ldof = 6;
             int gdofs = GetGdofs(vertices);
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
-            var KE = Matrix<double>.Build.Dense(3 * ldof, 3 * ldof);
-
-            //temp t (until input is set up)
-            double t = 100;
 
             for (int verticeIndex = 0; verticeIndex < vertices.Count / 3; verticeIndex += 3)
             {
@@ -202,130 +198,8 @@ namespace Shell
                 //UNTESTED!!!
             }
 
-            //Matrix<double> C = Matrix<double>.Build.DenseOfArray(new double[,] {
-            //{  1/E, -nu/E, -nu/E},
-            //{ },
-            //{ },
-
-            //    });
-            //int eta = 0;
-            //int eps = 0;
 
             #region old kmatrix code
-            //int gdofs = points.Count * 6;
-            //Matrix<double> K_tot = DenseMatrix.OfArray(new double[gdofs, gdofs]);
-
-            //foreach (Line currentLine in geometry)
-            //{
-            //    double L = Math.Round(currentLine.Length, 6);
-
-            //    Point3d p1 = new Point3d(Math.Round(currentLine.From.X, 2), Math.Round(currentLine.From.Y, 2), Math.Round(currentLine.From.Z, 2));
-            //    Point3d p2 = new Point3d(Math.Round(currentLine.To.X, 2), Math.Round(currentLine.To.Y, 2), Math.Round(currentLine.To.Z, 2));
-
-            //    double alpha = 0;
-
-            //    double cx = (p2.X - p1.X) / L;
-            //    double cy = (p2.Y - p1.Y) / L;
-            //    double cz = (p2.Z - p1.Z) / L;
-            //    double c1 = Math.Cos(alpha);
-            //    double s1 = Math.Sin(alpha);
-            //    double cxz = Math.Round(Math.Sqrt(Math.Pow(cx, 2) + Math.Pow(cz, 2)), 6);
-
-            //    Matrix<double> gamma;
-
-            //    if (Math.Round(cx, 6) == 0 && Math.Round(cz, 6) == 0)
-            //    {
-            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-            //    {
-            //        {      0, cy,  0},
-            //        { -cy*c1,  0, s1},
-            //        {  cy*s1,  0, c1},
-            //    });
-            //    }
-            //    else
-            //    {
-            //        gamma = Matrix<double>.Build.DenseOfArray(new double[,]
-            //    {
-            //        {                     cx,       cy,                   cz},
-            //        {(-cx*cy*c1 - cz*s1)/cxz,   cxz*c1,(-cy*cz*c1+cx*s1)/cxz},
-            //        {   (cx*cy*s1-cz*c1)/cxz,  -cxz*s1, (cy*cz*s1+cx*c1)/cxz},
-            //    });
-            //    }
-
-            //    var bd = Matrix<double>.Build;
-
-            //    Matrix<double> T1;
-            //    T1 = gamma.Append(bd.Dense(3, 9));
-            //    Matrix<double> T2;
-            //    T2 = bd.Dense(3, 3).Append(gamma);
-            //    T2 = T2.Append(bd.Dense(3, 6));
-            //    Matrix<double> T3;
-            //    T3 = bd.Dense(3, 6).Append(gamma);
-            //    T3 = T3.Append(bd.Dense(3, 3));
-            //    Matrix<double> T4;
-            //    T4 = bd.Dense(3, 9).Append(gamma);
-            //    Matrix<double> T;
-            //    T = T1.Stack(T2);
-            //    T = T.Stack(T3);
-            //    T = T.Stack(T4);
-
-            //    //Matrix<double> T = SparseMatrix.OfArray(new double[,]
-            //    //{
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { cx, cy, cz, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, cx, cy, cz, 0, 0, 0, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, cx, cy, cz, 0, 0, 0 },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //    { 0, 0, 0, 0, 0, 0, 0, 0, 0, cx, cy, cz },
-            //    //});
-
-            //    Matrix<double> T_T = T.Transpose();
-
-            //    double A1 = (E * A) / (L);
-
-            //    double kz1 = (12 * E * Iz) / (L * L * L);
-            //    double kz2 = (6 * E * Iz) / (L * L);
-            //    double kz3 = (4 * E * Iz) / L;
-            //    double kz4 = (2 * E * Iz) / L;
-
-            //    double ky1 = (12 * E * Iy) / (L * L * L);
-            //    double ky2 = (6 * E * Iy) / (L * L);
-            //    double ky3 = (4 * E * Iy) / L;
-            //    double ky4 = (2 * E * Iy) / L;
-
-            //    double C1 = (G * J) / L;
-
-            //    Matrix<double> K_elem = DenseMatrix.OfArray(new double[,]
-            //    {
-            //        { A1,    0,    0,    0,    0,    0,  -A1,    0,    0,    0,    0,    0 },
-            //        {  0,  kz1,    0,    0,    0,  kz2,    0, -kz1,    0,    0,    0,  kz2 },
-            //        {  0,    0,  ky1,    0, -ky2,    0,    0,    0, -ky1,    0, -ky2,    0 },
-            //        {  0,    0,    0,   C1,    0,    0,    0,    0,    0,  -C1,    0,    0 },
-            //        {  0,    0, -ky2,    0,  ky3,    0,    0,    0,  ky2,    0,  ky4,    0 },
-            //        {  0,  kz2,    0,    0,    0,  kz3,    0, -kz2,    0,    0,    0,  kz4 },
-            //        {-A1,    0,    0,    0,    0,    0,   A1,    0,    0,    0,    0,    0 },
-            //        {  0, -kz1,    0,    0,    0, -kz2,    0,  kz1,    0,    0,    0, -kz2 },
-            //        {  0,    0, -ky1,    0,  ky2,    0,    0,    0,  ky1,    0,  ky2,    0 },
-            //        {  0,    0,    0,  -C1,    0,    0,    0,    0,    0,   C1,    0,    0 },
-            //        {  0,    0, -ky2,    0,  ky4,    0,    0,    0,  ky2,    0,  ky3,    0 },
-            //        {  0,  kz2,    0,    0,    0,  kz4,    0, -kz2,    0,    0,    0,  kz3 },
-            //    });
-
-            //    K_elem = K_elem.Multiply(T);
-            //    K_elem = T_T.Multiply(K_elem);
-
-            //    int node1 = points.IndexOf(p1);
-            //    int node2 = points.IndexOf(p2);
-
-            //    //System.Diagnostics.Debug.WriteLine("Node1: " + node1.ToString() + ", Node2: " + node2.ToString());
-
-            //    //PrintMatrix(K_elem,"K_elem");
 
             //    //Inputting values to correct entries in Global Stiffness Matrix
             //    for (int i = 0; i < K_elem.RowCount / 2; i++)
@@ -363,7 +237,7 @@ namespace Shell
 
         private Matrix<double> CreateElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
         {
-            //Må tranformeres til lokale koordinater!!
+            // st global coordinates
             double x1 = xList[0];
             double x2 = xList[1];
             double x3 = xList[2];
@@ -376,6 +250,7 @@ namespace Shell
             double z2 = zList[1];
             double z3 = zList[2];
 
+            // assembling elements for tranformation matrix
             double cosxX = -(x1 - x2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
             double cosxY = -(y1 - y2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
             double cosxZ = -(z1 - z2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
@@ -386,6 +261,7 @@ namespace Shell
             double coszY = -((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) / Math.Pow((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)), (1 / 2));
             double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Math.Pow((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)), (1 / 2));
 
+            // assembling nodal x,y,z tranformation matrix tf
             Matrix<double> tf = Matrix<double>.Build.Dense(3, 3);
             tf[0, 0] = cosxX;
             tf[0, 1] = cosxY;
@@ -397,12 +273,14 @@ namespace Shell
             tf[2, 1] = coszY;
             tf[2, 2] = coszZ;
 
+            // assemble the full transformation matrix T for the entire element
             Matrix<double> one = Matrix<double>.Build.Dense(1,1,1);
             tf = tf.DiagonalStack(one);
             var T = tf.DiagonalStack(tf);
             T = T.DiagonalStack(tf);
-            Matrix<double> T_T = T.Transpose();
+            Matrix<double> T_T = T.Transpose(); // and the transposed tranformation matrix
 
+            // initiates the local coordinate matrix, initiated with global coordinates
             Matrix<double> lcoord = Matrix<double>.Build.DenseOfArray(new double[,]
             {
                 { x1, x2, x3 },
@@ -410,7 +288,9 @@ namespace Shell
                 { z1, z2, z3 }
             });
 
-            lcoord = T.Multiply(lcoord);
+            lcoord = T.Multiply(lcoord); //transforms lccord into local coordinate values
+
+            // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
             x2 = lcoord[0, 1];
             x3 = lcoord[0, 2];
@@ -418,6 +298,7 @@ namespace Shell
             y1 = lcoord[1, 1];
             y1 = lcoord[1, 2];
 
+            // defines variables for simplicity
             double x13 = x1 - x3;
             double x32 = x3 - x2;
             double y23 = y2 - y3;
@@ -530,7 +411,6 @@ namespace Shell
              
             return Ke;
         }
-
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
         {
