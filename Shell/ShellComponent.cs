@@ -100,7 +100,7 @@ namespace Shell
 
             #region Create global and reduced stiffness matrix
             //Create global stiffness matrix
-            Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu, 1);
+            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu, 1);
 
             //Create reduced K-matrix and reduced load list (removed clamped dofs)
             Matrix<double> K_red;
@@ -140,7 +140,7 @@ namespace Shell
             }
         }
 
-        private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
+        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
             int ldof = 4;
 
@@ -179,43 +179,42 @@ namespace Shell
 
                 double area = 1 / 2 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
 
-                Matrix<double> Ke = CreateElementStiffnessMatrix(xList, yList, zList, area, E, t, nu);
+                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, area, E, t, nu);
 
-            //Inputting values to correct entries in Global Stiffness Matrix
-            for (int row = 0; row < ldof; row++)
-            {
-                for (int col = 0; col < ldof; col++)
+                //Inputting values to correct entries in Global Stiffness Matrix
+                for (int row = 0; row < ldof; row++)
                 {
-                    //top left 3x3 of K-element matrix
-                    KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += Ke[row, col];
-                    //top middle 3x3 of k-element matrix
-                    KG[verticeIndex * ldof + row, (verticeIndex + 1) * ldof + col] += Ke[row, col + ldof];
-                    //top right 3x3 of k-element matrix  
-                    KG[verticeIndex * ldof + row, (verticeIndex + 2) * ldof + col] += Ke[row, col + ldof * 2];
+                    for (int col = 0; col < ldof; col++)
+                    {
+                        //top left 4x4 of K-element matrix
+                        KG[indexA * ldof + row, indexA * ldof + col] += Ke[row, col];
+                        //top middle 4x4 of k-element matrix
+                        KG[indexA * ldof + row, indexB * ldof + col] += Ke[row, col + ldof];
+                        //top right 4x4 of k-element matrix  
+                        KG[indexA * ldof + row, indexC * ldof + col] += Ke[row, col + ldof * 2];
 
-                    //middle left 3x3 of k-element matrix
-                    KG[(verticeIndex + 1) * ldof + row, verticeIndex * ldof + col] += Ke[row + ldof, col];
-                    //middle middle 3x3 of k-element matrix
-                    KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 1) * ldof + col] += Ke[row + ldof, col + ldof];
-                    //middle right 3x3 of k-element matrix
-                    KG[(verticeIndex + 1) * ldof + row, (verticeIndex + 2) * ldof + col] += Ke[row + ldof, col + ldof * 2];
+                        //middle left 4x4 of k-element matrix
+                        KG[indexB * ldof + row, indexA * ldof + col] += Ke[row + ldof, col];
+                        //middle middle 4x4 of k-element matrix
+                        KG[indexB * ldof + row, indexB * ldof + col] += Ke[row + ldof, col + ldof];
+                        //middle right 4x4 of k-element matrix
+                        KG[indexB * ldof + row, indexC * ldof + col] += Ke[row + ldof, col + ldof * 2];
 
-                    //bottom left 3x3 of k-element matrix
-                    KG[(verticeIndex + 2) * ldof + row, verticeIndex * ldof + col] += Ke[row + ldof * 2, col];
-                    //bottom middle 3x3 of k-element matrix
-                    KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 1) * ldof + col] += Ke[row + ldof * 2, col + ldof];
-                    //bottom right 3x3 of k-element matrix
-                    KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += Ke[row + ldof * 2, col + ldof * 2];
+                        //bottom left 4x4 of k-element matrix
+                        KG[indexC * ldof + row, indexA * ldof + col] += Ke[row + ldof * 2, col];
+                        //bottom middle 4x4 of k-element matrix
+                        KG[indexC * ldof + row, indexB * ldof + col] += Ke[row + ldof * 2, col + ldof];
+                        //bottom right 4x4 of k-element matrix
+                        KG[indexC * ldof + row, indexC * ldof + col] += Ke[row + ldof * 2, col + ldof * 2];
+                    }
                 }
+                return KG;
+                //NB! Consider calculating stresses and strains via this function to optimise calculation time!
+                // el strain = Bq, el stress = DBq 
+                //would be fastest to call calcstress & strain-method from this method since B is not saved outside this method!
             }
-        }
-            return KG;
-            //NB! Consider calculating stresses and strains via this function to optimise calculation time!
-            // el strain = Bq, el stress = DBq 
-            //would be fastest to call calcstress & strain-method from this method since B is not saved outside this method!
-        }
 
-        private Matrix<double> CreateElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
+        private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
         {
             // get global coordinates
             double x1 = xList[0];
