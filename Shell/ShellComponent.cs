@@ -18,6 +18,8 @@ namespace Shell
         {
         }
 
+        public static int ldofs = 4;
+
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddMeshParameter("IsoMesh", "IM", "The shell 6-node element isoparametric mesh, made by IsoMesher component", GH_ParamAccess.item);
@@ -71,8 +73,8 @@ namespace Shell
             }
 
             List<Point3d> uniqueNodes;
-            GetGdofs(vertices, out uniqueNodes);
-            int Gdofs = uniqueNodes.Count * 4;
+            GetUniqueNodes(vertices, out uniqueNodes);
+            int gdofs = uniqueNodes.Count * ldofs;
 
             #endregion
 
@@ -91,7 +93,7 @@ namespace Shell
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            List<int> bdc_value = CreateBDCList(bdctxt, vertices);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, vertices);
 
 
             //Interpreting input load (text) and creating load list (double)
@@ -110,7 +112,7 @@ namespace Shell
 
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -142,10 +144,6 @@ namespace Shell
 
         private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
-            int ldof = 4;
-
-            //OBS! Har vi ikke annen nytte av getgdofs enn uniqueNodes.count? Hvis nei burde den returnere uniquenodes.count 
-            //(for da slipper man å opprette var uniquenodes, for så å hente .count). MEN tror vi trenger, se neste OBS!
             var uniqueNodes = new List<Point3d>();
             GetUniqueNodes(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count;
@@ -190,30 +188,30 @@ namespace Shell
                 Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, area, E, t, nu);
 
                 //Inputting values to correct entries in Global Stiffness Matrix
-                for (int row = 0; row < ldof; row++)
+                for (int row = 0; row < ldofs; row++)
                 {
-                    for (int col = 0; col < ldof; col++)
+                    for (int col = 0; col < ldofs; col++)
                     {
                         //top left 4x4 of K-element matrix
-                        KG[indexA * ldof + row, indexA * ldof + col] += Ke[row, col];
+                        KG[indexA * ldofs + row, indexA * ldofs + col] += Ke[row, col];
                         //top middle 4x4 of k-element matrix
-                        KG[indexA * ldof + row, indexB * ldof + col] += Ke[row, col + ldof];
+                        KG[indexA * ldofs + row, indexB * ldofs + col] += Ke[row, col + ldofs];
                         //top right 4x4 of k-element matrix  
-                        KG[indexA * ldof + row, indexC * ldof + col] += Ke[row, col + ldof * 2];
+                        KG[indexA * ldofs + row, indexC * ldofs + col] += Ke[row, col + ldofs * 2];
 
                         //middle left 4x4 of k-element matrix
-                        KG[indexB * ldof + row, indexA * ldof + col] += Ke[row + ldof, col];
+                        KG[indexB * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs, col];
                         //middle middle 4x4 of k-element matrix
-                        KG[indexB * ldof + row, indexB * ldof + col] += Ke[row + ldof, col + ldof];
+                        KG[indexB * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs, col + ldofs];
                         //middle right 4x4 of k-element matrix
-                        KG[indexB * ldof + row, indexC * ldof + col] += Ke[row + ldof, col + ldof * 2];
+                        KG[indexB * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs, col + ldofs * 2];
 
                         //bottom left 4x4 of k-element matrix
-                        KG[indexC * ldof + row, indexA * ldof + col] += Ke[row + ldof * 2, col];
+                        KG[indexC * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs * 2, col];
                         //bottom middle 4x4 of k-element matrix
-                        KG[indexC * ldof + row, indexB * ldof + col] += Ke[row + ldof * 2, col + ldof];
+                        KG[indexC * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs * 2, col + ldofs];
                         //bottom right 4x4 of k-element matrix
-                        KG[indexC * ldof + row, indexC * ldof + col] += Ke[row + ldof * 2, col + ldof * 2];
+                        KG[indexC * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs * 2, col + ldofs * 2];
                     }
                 }
                 //NB! Consider calculating stresses and strains via this function to optimise calculation time!
@@ -456,9 +454,9 @@ namespace Shell
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
         {
-            List<int> bdc_value = new List<int>(new int[uniqueNodes.Count * 4]);
+            var bdc_value = Vector<double>.Build.Dense(uniqueNodes.Count * ldofs, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -478,31 +476,16 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[2]));
                 bdcs.Add(int.Parse(bdcstr1[3]));
             }
-
+            
 
             //Format to correct entries in bdc_value
-            for (int i = 0; i < uniqueNodes.Count; i++)
+            foreach (var point in bdc_points)
             {
-                Point3d tempP = uniqueNodes[i];
-
-                if (bdc_points.Contains(tempP))
-                {
-                    bdc_value[i * 6 + 0] = bdcs[bdc_points.IndexOf(tempP) * 6 + 0];
-                    bdc_value[i * 6 + 1] = bdcs[bdc_points.IndexOf(tempP) * 6 + 1];
-                    bdc_value[i * 6 + 2] = bdcs[bdc_points.IndexOf(tempP) * 6 + 2];
-                    bdc_value[i * 6 + 3] = bdcs[bdc_points.IndexOf(tempP) * 6 + 3];
-                    bdc_value[i * 6 + 4] = bdcs[bdc_points.IndexOf(tempP) * 6 + 4];
-                    bdc_value[i * 6 + 5] = bdcs[bdc_points.IndexOf(tempP) * 6 + 5];
-                }
-                else
-                {
-                    bdc_value[i * 6 + 0] = 1;
-                    bdc_value[i * 6 + 1] = 1;
-                    bdc_value[i * 6 + 2] = 1;
-                    bdc_value[i * 6 + 3] = 1;
-                    bdc_value[i * 6 + 4] = 1;
-                    bdc_value[i * 6 + 5] = 1;
-                }
+                int i = uniqueNodes.IndexOf(point);
+                bdc_value[i * ldofs + 0] = bdcs[bdc_points.IndexOf(point) * ldofs + 0];
+                bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
+                bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
+                bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
             return bdc_value;
         }
