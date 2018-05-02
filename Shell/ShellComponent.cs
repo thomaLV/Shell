@@ -145,7 +145,7 @@ namespace Shell
             int ldof = 4;
 
             //OBS! Har vi ikke annen nytte av getgdofs enn uniqueNodes.count? Hvis nei burde den returnere uniquenodes.count 
-            //(for da slipper man å opprette var uniquenodes, for så å hente .count)
+            //(for da slipper man å opprette var uniquenodes, for så å hente .count). MEN tror vi trenger, se neste OBS!
             var uniqueNodes = new List<Point3d>();
             GetGdofs(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count;
@@ -153,9 +153,17 @@ namespace Shell
 
             foreach (var face in faces)
             {
-                int indexA = face.A;
-                int indexB = face.B;
-                int indexC = face.C;
+                //OBS! Mtp at vertices-listen kan inneholde overflødige noder bør vi finne indexen til verticen
+                //i uniqueNode-listen isteden. På den måten vil ikke KG få plassering på feil index
+                int indexA = uniqueNodes.IndexOf(vertices[face.A]);
+                int indexB = uniqueNodes.IndexOf(vertices[face.B]);
+                int indexC = uniqueNodes.IndexOf(vertices[face.C]);
+
+                #region Old (wrong?) indices
+                //int indexA = face.A;
+                //int indexB = face.B;
+                //int indexC = face.C;
+                #endregion
 
                 Point3d verticeA = vertices[indexA - 1];
                 Point3d verticeB = vertices[indexB - 1];
