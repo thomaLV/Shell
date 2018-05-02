@@ -386,17 +386,37 @@ namespace Shell
             double coszY = -((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) / Math.Pow((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)), (1 / 2));
             double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Math.Pow((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)), (1 / 2));
 
-            Matrix<double> T = Matrix<double>.Build.Dense(3, 3);
-            T[0, 0] = cosxX;
-            T[0, 1] = cosxY;
-            T[0, 2] = cosxZ;
-            T[1, 0] = cosyX;
-            T[1, 1] = cosyY;
-            T[1, 2] = cosyZ;
-            T[2, 0] = coszX;
-            T[2, 1] = coszY;
-            T[2, 2] = coszZ;
+            Matrix<double> tf = Matrix<double>.Build.Dense(3, 3);
+            tf[0, 0] = cosxX;
+            tf[0, 1] = cosxY;
+            tf[0, 2] = cosxZ;
+            tf[1, 0] = cosyX;
+            tf[1, 1] = cosyY;
+            tf[1, 2] = cosyZ;
+            tf[2, 0] = coszX;
+            tf[2, 1] = coszY;
+            tf[2, 2] = coszZ;
 
+            Matrix<double> one = Matrix<double>.Build.Dense(1,1,1);
+            tf = tf.DiagonalStack(one);
+            var T = tf.DiagonalStack(tf);
+            T = T.DiagonalStack(tf);
+            Matrix<double> T_T = T.Transpose();
+
+            Matrix<double> lcoord = Matrix<double>.Build.DenseOfArray(new double[,]
+            {
+                { x1, x2, x3 },
+                { y1, y2, y3 },
+                { z1, z2, z3 }
+            });
+
+            lcoord = T.Multiply(lcoord);
+            x1 = lcoord[0, 0];
+            x2 = lcoord[0, 1];
+            x3 = lcoord[0, 2];
+            y1 = lcoord[1, 0];
+            y1 = lcoord[1, 1];
+            y1 = lcoord[1, 2];
 
             double x13 = x1 - x3;
             double x32 = x3 - x2;
@@ -505,8 +525,9 @@ namespace Shell
             ke[11, 10] = -(E * Math.Pow(t, 3) * (a6 * ga5 + a5 * my6) * (2 * Math.Pow(x13, 2) * Math.Pow(x32, 2) + Math.Pow(x13, 2) * Math.Pow(y23, 2) + Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * Math.Pow(y23, 2) * Math.Pow(y31, 2) - nu * Math.Pow(x13, 2) * Math.Pow(y23, 2) - nu * Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * x13 * x32 * y23 * y31 + 2 * nu * x13 * x32 * y23 * y31)) / (96 * Math.Pow(Area, 3) * ga5 * Math.Pow(my6, 2) * (Math.Pow(nu, 2) - 1));
             ke[11, 11] = -(E * Math.Pow(t, 3) * ((2 * x13 * x32 * ((2 * x13 * x32) / my6 + (2 * nu * y23 * y31) / my6)) / my6 - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / Math.Pow(my6, 2) + (2 * y23 * y31 * ((2 * y23 * y31) / my6 + (2 * nu * x13 * x32) / my6)) / my6)) / (192 * Math.Pow(Area, 3) * (Math.Pow(nu, 2) - 1));
 
-            Matrix<double> Ke = T.Transpose() * ke * T;
-
+            Matrix<double> Ke = ke.Multiply(T);
+            Ke = T_T.Multiply(Ke);
+             
             return Ke;
         }
 
