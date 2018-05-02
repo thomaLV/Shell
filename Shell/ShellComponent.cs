@@ -127,7 +127,7 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
-        private void GetGdofs(List<Point3d> vertices, out List<Point3d> uniqueNodes)
+        private void GetUniqueNodes(List<Point3d> vertices, out List<Point3d> uniqueNodes)
         {
             uniqueNodes = new List<Point3d>();
             for (int i = 0; i < vertices.Count; i++)
@@ -147,7 +147,7 @@ namespace Shell
             //OBS! Har vi ikke annen nytte av getgdofs enn uniqueNodes.count? Hvis nei burde den returnere uniquenodes.count 
             //(for da slipper man å opprette var uniquenodes, for så å hente .count). MEN tror vi trenger, se neste OBS!
             var uniqueNodes = new List<Point3d>();
-            GetGdofs(vertices, out uniqueNodes);
+            GetUniqueNodes(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count;
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
@@ -216,11 +216,12 @@ namespace Shell
                         KG[indexC * ldof + row, indexC * ldof + col] += Ke[row + ldof * 2, col + ldof * 2];
                     }
                 }
-                return KG;
                 //NB! Consider calculating stresses and strains via this function to optimise calculation time!
                 // el strain = Bq, el stress = DBq 
                 //would be fastest to call calcstress & strain-method from this method since B is not saved outside this method!
             }
+            return KG;
+        }
 
         private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
         {
