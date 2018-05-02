@@ -143,7 +143,12 @@ namespace Shell
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
             int ldof = 4;
-            int gdofs = GetGdofs(vertices);
+
+            //OBS! Har vi ikke annen nytte av getgdofs enn uniqueNodes.count? Hvis nei burde den returnere uniquenodes.count 
+            //(for da slipper man å opprette var uniquenodes, for så å hente .count)
+            var uniqueNodes = new List<Point3d>();
+            GetGdofs(vertices, out uniqueNodes);
+            int gdofs = uniqueNodes.Count;
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
             foreach (var face in faces)
