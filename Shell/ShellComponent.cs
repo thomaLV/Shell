@@ -400,10 +400,12 @@ namespace Shell
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes)
         {
-            List<double> loads = new List<double>(new double[uniqueNodes.Count * 4]);
+            //initializing loads with list of doubles of size gdofs and entry values = 0
+            List<double> loads = new List<double>(new double[uniqueNodes.Count * ldofs]);   
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
+            //parsing point loads
             for (int i = 0; i < loadtxt.Count; i++)
             {
                 string coordstr = (loadtxt[i].Split(':')[0]);
@@ -419,16 +421,20 @@ namespace Shell
                 coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
             }
 
+            //inputting point loads at correct index in loads list
             foreach (Point3d point in coordlist)
             {
-                int i = uniqueNodes.IndexOf(point);
-                int j = coordlist.IndexOf(point);
-                loads[i * 4 + 0] = inputLoads[j * 3 + 0];
-                loads[i * 4 + 1] = inputLoads[j * 3 + 1];
-                loads[i * 4 + 2] = inputLoads[j * 3 + 2];
+                int gNodeIndex = uniqueNodes.IndexOf(point);
+                int lNodeIndex = coordlist.IndexOf(point);
+                loads[gNodeIndex * ldofs + 0] = inputLoads[lNodeIndex * 3 + 0];
+                loads[gNodeIndex * ldofs + 1] = inputLoads[lNodeIndex * 3 + 1];
+                loads[gNodeIndex * ldofs + 2] = inputLoads[lNodeIndex * 3 + 2];
             }
+            //resetting variables
             inputLoads.Clear();
             coordlist.Clear();
+
+            //parsing moment loads
             for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
                 {
                     string coordstr = (momenttxt[i].Split(':')[0]);
@@ -445,17 +451,22 @@ namespace Shell
                     coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
                 }
 
+            //inputting moment loads at correct index in loads list
             foreach (Point3d point in coordlist)
             {
-                int i = uniqueNodes.IndexOf(point);
-                int j = coordlist.IndexOf(point);
-                loads[i * 4 + 3] = inputLoads[j * 3 + 0];
+                int gNodeIndex = uniqueNodes.IndexOf(point);
+                int lNodeIndex = coordlist.IndexOf(point);
+                //OBS! Gis moment som moment rundt 3 akser?
+                loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
+                loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
+                loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
             }
             return loads;
         }
 
         private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
         {
+            //initializing bdc_value as vector of size gdofs, and entry values = 1
             var bdc_value = Vector<double>.Build.Dense(uniqueNodes.Count * ldofs, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
