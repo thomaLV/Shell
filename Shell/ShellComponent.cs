@@ -112,7 +112,6 @@ namespace Shell
             Vector<double> load_red;
             CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
             #endregion
-
         }
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
@@ -122,7 +121,7 @@ namespace Shell
             for (int i = 0, j = 0; i < load.Count; i++)
             {
                 //remove clamped dofs
-                if (bdc_value[i] == 0)  
+                if (bdc_value[i] == 0)
                 {
                     K_red = K_red.RemoveRow(i - j);
                     K_red = K_red.RemoveColumn(i - j);
@@ -264,7 +263,7 @@ namespace Shell
             tf[2, 2] = coszZ;
 
             // assemble the full transformation matrix T for the entire element
-            Matrix<double> one = m.Dense(1,1,1);
+            Matrix<double> one = m.Dense(1, 1, 1);
             tf = tf.DiagonalStack(one);
             var T = tf.DiagonalStack(tf);
             T = T.DiagonalStack(tf);
@@ -302,12 +301,12 @@ namespace Shell
             {
                 double c, s;
                 double len = Math.Sqrt(Math.Pow(xList[i + 1] - xList[i], 2) + Math.Pow(yList[i + 1] - yList[i], 2));
-                if (xList[i+1]>xList[i])
+                if (xList[i + 1] > xList[i])
                 {
                     c = (xList[i + 1] - xList[i]) / len;
                     s = (yList[i + 1] - yList[i]) / len;
                 }
-                else if (xList[i+1]<xList[i])
+                else if (xList[i + 1] < xList[i])
                 {
                     c = (xList[i] - xList[i + 1]) / len;
                     s = (yList[i] - yList[i + 1]) / len;
@@ -398,14 +397,14 @@ namespace Shell
 
             Matrix<double> Ke = ke.Multiply(T);
             Ke = T_T.Multiply(Ke);
-             
+
             return Ke;
         }
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes)
         {
             //initializing loads with list of doubles of size gdofs and entry values = 0
-            List<double> loads = new List<double>(new double[uniqueNodes.Count * ldofs]);   
+            List<double> loads = new List<double>(new double[uniqueNodes.Count * ldofs]);
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
@@ -491,7 +490,7 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[2]));
                 bdcs.Add(int.Parse(bdcstr1[3]));
             }
-            
+
 
             //Format to correct entries in bdc_value
             foreach (var point in bdc_points)
