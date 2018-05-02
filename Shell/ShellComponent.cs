@@ -133,28 +133,36 @@ namespace Shell
                     uniqueNodes.Add(tempNode);
                 }
             }
-            return uniqueNodes.Count;
+            return uniqueNodes.Count*4;
         }
 
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
-            int ldof = 6;
+            int ldof = 4;
             int gdofs = GetGdofs(vertices);
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
-            for (int verticeIndex = 0; verticeIndex < vertices.Count / 3; verticeIndex += 3)
+            foreach (var face in faces)
             {
-                double y1 = vertices[verticeIndex].Y;
-                double y2 = vertices[verticeIndex + 1].Y;
-                double y3 = vertices[verticeIndex + 2].Y;
+                int indexA = face.A;
+                int indexB = face.B;
+                int indexC = face.C;
 
-                double x1 = vertices[verticeIndex].X;
-                double x2 = vertices[verticeIndex + 1].X;
-                double x3 = vertices[verticeIndex + 2].X;
+                Point3d verticeA = vertices[indexA - 1];
+                Point3d verticeB = vertices[indexB - 1];
+                Point3d verticeC = vertices[indexC - 1];
 
-                double z1 = vertices[verticeIndex].Z;
-                double z2 = vertices[verticeIndex + 1].Z;
-                double z3 = vertices[verticeIndex + 2].Z;
+                double x1 = verticeA.X;
+                double x2 = verticeB.X;
+                double x3 = verticeC.X;
+
+                double y1 = verticeA.Y;
+                double y2 = verticeB.Y;
+                double y3 = verticeC.Y;
+
+                double z1 = verticeA.Z;
+                double z2 = verticeB.Z;
+                double z3 = verticeC.Z;
 
                 double[] xList = new double[3] { x1, x2, x3 };
                 double[] yList = new double[3] { y1, y2, y3 };
@@ -163,16 +171,11 @@ namespace Shell
                 double area = 1 / 2 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
 
                 Matrix<double> Ke = CreateElementStiffnessMatrix(xList, yList, zList, area, E, t, nu);
-                
-
-
-
-            int verticesPerFace = 3; //since triangle
 
             //Inputting values to correct entries in Global Stiffness Matrix
-            for (int row = 0; row < Ke.RowCount / verticesPerFace; row++)
+            for (int row = 0; row < ldof; row++)
             {
-                for (int col = 0; col < Ke.ColumnCount / verticesPerFace; col++)
+                for (int col = 0; col < ldof; col++)
                 {
                     //top left 3x3 of K-element matrix
                     KG[verticeIndex * ldof + row, verticeIndex * ldof + col] += Ke[row, col];
@@ -195,39 +198,7 @@ namespace Shell
                     //bottom right 3x3 of k-element matrix
                     KG[(verticeIndex + 2) * ldof + row, (verticeIndex + 2) * ldof + col] += Ke[row + ldof * 2, col + ldof * 2];
                 }
-                //UNTESTED!!!
             }
-
-
-            #region old kmatrix code
-
-            //    //Inputting values to correct entries in Global Stiffness Matrix
-            //    for (int i = 0; i < K_elem.RowCount / 2; i++)
-            //    {
-            //        //top left 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node1 * 6 + i, node1 * 6 + j] += K_elem[i, j];
-            //        }
-            //        //top right 3x3 of k-element matrix  
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node1 * 6 + i, node2 * 6 + j] += K_elem[i, j + 6];
-            //        }
-            //        //bottom left 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node2 * 6 + i, node1 * 6 + j] += K_elem[i + 6, j];
-            //        }
-            //        //bottom right 3x3 of k-element matrix
-            //        for (int j = 0; j < K_elem.ColumnCount / 2; j++)
-            //        {
-            //            K_tot[node2 * 6 + i, node2 * 6 + j] += K_elem[i + 6, j + 6];
-            //        }
-            //    }
-            //}
-            #endregion
-
         }
             return KG;
             //NB! Consider calculating stresses and strains via this function to optimise calculation time!
