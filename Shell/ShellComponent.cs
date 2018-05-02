@@ -18,7 +18,10 @@ namespace Shell
         {
         }
 
-        public static int ldofs = 4;
+        private static int ldofs = 4;
+        private static MatrixBuilder<double> m = Matrix<double>.Build;
+        private static VectorBuilder<double> v = Vector<double>.Build;
+
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -114,11 +117,12 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            K_red = Matrix<double>.Build.DenseOfMatrix(K);
+            K_red = m.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
             for (int i = 0, j = 0; i < load.Count; i++)
             {
-                if (bdc_value[i] == 0)
+                //remove clamped dofs
+                if (bdc_value[i] == 0)  
                 {
                     K_red = K_red.RemoveRow(i - j);
                     K_red = K_red.RemoveColumn(i - j);
@@ -126,7 +130,7 @@ namespace Shell
                     j++;
                 }
             }
-            load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
+            load_red = v.DenseOfEnumerable(load_redu);
         }
 
         private void GetUniqueNodes(List<Point3d> vertices, out List<Point3d> uniqueNodes)
@@ -147,7 +151,7 @@ namespace Shell
             var uniqueNodes = new List<Point3d>();
             GetUniqueNodes(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count;
-            var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
+            var KG = m.Dense(gdofs, gdofs);
 
             foreach (var face in faces)
             {
@@ -248,7 +252,7 @@ namespace Shell
             double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Math.Pow((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)), (1 / 2));
 
             // assembling nodal x,y,z tranformation matrix tf
-            Matrix<double> tf = Matrix<double>.Build.Dense(3, 3);
+            Matrix<double> tf = m.Dense(3, 3);
             tf[0, 0] = cosxX;
             tf[0, 1] = cosxY;
             tf[0, 2] = cosxZ;
@@ -260,14 +264,14 @@ namespace Shell
             tf[2, 2] = coszZ;
 
             // assemble the full transformation matrix T for the entire element
-            Matrix<double> one = Matrix<double>.Build.Dense(1,1,1);
+            Matrix<double> one = m.Dense(1,1,1);
             tf = tf.DiagonalStack(one);
             var T = tf.DiagonalStack(tf);
             T = T.DiagonalStack(tf);
             Matrix<double> T_T = T.Transpose(); // and the transposed tranformation matrix
 
             // initiates the local coordinate matrix, initiated with global coordinates
-            Matrix<double> lcoord = Matrix<double>.Build.DenseOfArray(new double[,]
+            Matrix<double> lcoord = m.DenseOfArray(new double[,]
             {
                 { x1, x2, x3 },
                 { y1, y2, y3 },
@@ -328,7 +332,7 @@ namespace Shell
             double a5 = a[1];
             double a6 = a[2];
 
-            Matrix<double> ke = Matrix<double>.Build.Dense(12, 12);
+            Matrix<double> ke = m.Dense(12, 12);
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
             ke[0, 0] = -(Area * E * t * (Math.Pow(x2, 2) - 4 * y2 * y3 - nu * Math.Pow(x2, 2) - nu * Math.Pow(x3, 2) - 2 * x2 * x3 + Math.Pow(x3, 2) + 2 * Math.Pow(y2, 2) + 2 * Math.Pow(y3, 2) + 2 * nu * x2 * x3)) / (2 * (Math.Pow(nu, 2) - 1) * Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2));
             ke[0, 1] = (Area * E * t * (x2 - x3) * (y2 - y3) * (nu + 1)) / (2 * (Math.Pow(nu, 2) - 1) * Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2));
@@ -467,7 +471,7 @@ namespace Shell
         private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
-            var bdc_value = Vector<double>.Build.Dense(uniqueNodes.Count * ldofs, 1);
+            var bdc_value = v.Dense(uniqueNodes.Count * ldofs, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
