@@ -69,6 +69,11 @@ namespace Shell
             {
                 vertices.Add(vertice);
             }
+
+            List<Point3d> uniqueNodes;
+            GetGdofs(vertices, out uniqueNodes);
+            int Gdofs = uniqueNodes.Count * 4;
+
             #endregion
 
             //Interpret and set material parameters
@@ -89,15 +94,15 @@ namespace Shell
             List<int> bdc_value = CreateBDCList(bdctxt, vertices);
 
 
-            //Interpreting input load (text) and creating load list (do uble)
-            List<double> load = CreateLoadList(loadtxt, momenttxt, vertices);
+            //Interpreting input load (text) and creating load list (double)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes);
             #endregion
 
             #region Create global and reduced stiffness matrix
             //Create global stiffness matrix
             Matrix<double> K_tot = CreateGlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu, 1);
 
-            //Create reduced K-matrix and reduced load list (removed free dofs)
+            //Create reduced K-matrix and reduced load list (removed clamped dofs)
             Matrix<double> K_red;
             Vector<double> load_red;
             CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
@@ -122,9 +127,9 @@ namespace Shell
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
-        private static int GetGdofs(List<Point3d> vertices)
+        private void GetGdofs(List<Point3d> vertices, out List<Point3d> uniqueNodes)
         {
-            List<Point3d> uniqueNodes = new List<Point3d>();
+            uniqueNodes = new List<Point3d>();
             for (int i = 0; i < vertices.Count; i++)
             {
                 Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 2), Math.Round(vertices[i].Y, 2), Math.Round(vertices[i].Z, 2));
@@ -133,7 +138,6 @@ namespace Shell
                     uniqueNodes.Add(tempNode);
                 }
             }
-            return uniqueNodes.Count*4;
         }
 
         private Matrix<double> CreateGlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
@@ -383,9 +387,9 @@ namespace Shell
             return Ke;
         }
 
-        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> vertices)
+        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes)
         {
-            List<double> loads = new List<double>(new double[vertices.Count * 6]);
+            List<double> loads = new List<double>(new double[uniqueNodes.Count * 4]);
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
@@ -406,11 +410,11 @@ namespace Shell
 
             foreach (Point3d point in coordlist)
             {
-                int i = vertices.IndexOf(point);
+                int i = uniqueNodes.IndexOf(point);
                 int j = coordlist.IndexOf(point);
-                loads[i * 6 + 0] = inputLoads[j * 3 + 0];
-                loads[i * 6 + 1] = inputLoads[j * 3 + 1];
-                loads[i * 6 + 2] = inputLoads[j * 3 + 2];
+                loads[i * 4 + 0] = inputLoads[j * 3 + 0];
+                loads[i * 4 + 1] = inputLoads[j * 3 + 1];
+                loads[i * 4 + 2] = inputLoads[j * 3 + 2];
             }
             inputLoads.Clear();
             coordlist.Clear();
@@ -432,18 +436,16 @@ namespace Shell
 
             foreach (Point3d point in coordlist)
             {
-                int i = vertices.IndexOf(point);
+                int i = uniqueNodes.IndexOf(point);
                 int j = coordlist.IndexOf(point);
-                loads[i * 6 + 3] = inputLoads[j * 3 + 0];
-                loads[i * 6 + 4] = inputLoads[j * 3 + 1];
-                loads[i * 6 + 5] = inputLoads[j * 3 + 2];
+                loads[i * 4 + 3] = inputLoads[j * 3 + 0];
             }
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> vertices)
+        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
         {
-            List<int> bdc_value = new List<int>(new int[vertices.Count * 6]);
+            List<int> bdc_value = new List<int>(new int[uniqueNodes.Count * 4]);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
@@ -462,15 +464,13 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[1]));
                 bdcs.Add(int.Parse(bdcstr1[2]));
                 bdcs.Add(int.Parse(bdcstr1[3]));
-                bdcs.Add(int.Parse(bdcstr1[4]));
-                bdcs.Add(int.Parse(bdcstr1[5]));
             }
 
 
             //Format to correct entries in bdc_value
-            for (int i = 0; i < vertices.Count; i++)
+            for (int i = 0; i < uniqueNodes.Count; i++)
             {
-                Point3d tempP = vertices[i];
+                Point3d tempP = uniqueNodes[i];
 
                 if (bdc_points.Contains(tempP))
                 {
