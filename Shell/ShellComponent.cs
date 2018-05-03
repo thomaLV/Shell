@@ -96,7 +96,7 @@ namespace Shell
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            Vector<double> bdc_value = CreateBDCList(bdctxt, vertices);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices);
 
 
             //Interpreting input load (text) and creating load list (double)
@@ -456,7 +456,7 @@ namespace Shell
             return loads;
         }
 
-        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
             var bdc_value = v.Dense(uniqueNodes.Count * ldofs, 1);
