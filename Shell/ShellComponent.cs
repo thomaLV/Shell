@@ -516,7 +516,7 @@ namespace Shell
             get
             {
 
-                return null;
+                return Properties.Resources.Calc;
             }
         }
 
