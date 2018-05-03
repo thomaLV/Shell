@@ -100,12 +100,12 @@ namespace Shell
 
 
             //Interpreting input load (text) and creating load list (double)
-            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes);
+            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices);
             #endregion
 
             #region Create global and reduced stiffness matrix
             //Create global stiffness matrix
-            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, E, A, Iy, Iz, J, G, nu, 1);
+            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, uniqueNodes, E, A, Iy, Iz, J, G, nu, 1);
 
             //Create reduced K-matrix and reduced load list (removed clamped dofs)
             Matrix<double> K_red;
@@ -145,10 +145,8 @@ namespace Shell
             }
         }
 
-        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
+        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Point3d> uniqueNodes, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
-            var uniqueNodes = new List<Point3d>();
-            GetUniqueNodes(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count * 4;
             var KG = m.Dense(gdofs, gdofs);
 
@@ -393,7 +391,7 @@ namespace Shell
             return Ke;
         }
 
-        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes)
+        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices)
         {
             //initializing loads with list of doubles of size gdofs and entry values = 0
             List<double> loads = new List<double>(new double[uniqueNodes.Count * ldofs]);
@@ -445,16 +443,6 @@ namespace Shell
 
                     coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
                 }
-
-            //inputing moment loads at correct index in loads list
-            foreach (Point3d point in coordlist)
-            {
-                int gNodeIndex = uniqueNodes.IndexOf(point);
-                int lNodeIndex = coordlist.IndexOf(point);
-                loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
-                loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
-                loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
-            }
             return loads;
         }
 
