@@ -25,7 +25,7 @@ namespace Shell
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("PointLoads", "PL", "PointLoads formatted for Truss Calculation", GH_ParamAccess.list);
+            pManager.AddTextParameter("PointLoads", "PL", "PointLoads formatted for Calculation Component", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -41,8 +41,8 @@ namespace Shell
             //Set expected inputs from Indata
             if (!DA.GetDataList(0, pointList)) return;
             if (!DA.GetDataList(1, loadList)) return;
-            DA.GetDataList(2, anglexz);
-            DA.GetDataList(3, anglexy);
+            if (DA.GetDataList(2, anglexz)) return;
+            if (DA.GetDataList(3, anglexy)) return;
             #endregion
 
             #region Format pointloads
