@@ -431,33 +431,36 @@ namespace Shell
             inputLoads.Clear();
             coordlist.Clear();
 
-            //parsing moment loads
-            for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
-                {
-                    string coordstr = (momenttxt[i].Split(':')[0]);
-                    string loadstr = (momenttxt[i].Split(':')[1]);
+            #region Moment Loads (disregard)
+            ////parsing moment loads
+            //for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
+            //    {
+            //        string coordstr = (momenttxt[i].Split(':')[0]);
+            //        string loadstr = (momenttxt[i].Split(':')[1]);
 
-                    string[] coordstr1 = (coordstr.Split(','));
-                    string[] loadstr1 = (loadstr.Split(','));
+            //        string[] coordstr1 = (coordstr.Split(','));
+            //        string[] loadstr1 = (loadstr.Split(','));
 
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
+            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
+            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
 
 
-                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
-                }
+            //        coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+            //    }
 
-            //inputting moment loads at correct index in loads list
-            foreach (Point3d point in coordlist)
-            {
-                int gNodeIndex = uniqueNodes.IndexOf(point);
-                int lNodeIndex = coordlist.IndexOf(point);
-                //OBS! Gis moment som moment rundt 3 akser?
-                loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
-                loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
-                loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
-            }
+            ////inputting moment loads at correct index in loads list
+            //foreach (Point3d point in coordlist)
+            //{
+            //    int gNodeIndex = uniqueNodes.IndexOf(point);
+            //    int lNodeIndex = coordlist.IndexOf(point);
+            //    //OBS! Gis moment som moment rundt 3 akser?
+            //    loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
+            //    loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
+            //    loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
+            //}
+            #endregion
+
             return loads;
         }
 
