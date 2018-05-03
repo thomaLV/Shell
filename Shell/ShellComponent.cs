@@ -453,7 +453,7 @@ namespace Shell
             //    loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
             //    loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
             //}
-            //return loads;
+            return loads;
         }
 
         private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes)
