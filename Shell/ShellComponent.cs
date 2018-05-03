@@ -427,6 +427,7 @@ namespace Shell
             inputLoads.Clear();
             coordlist.Clear();
 
+            #region Moment load input
             ////parsing moment loads
             //for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
             //    {
@@ -453,6 +454,7 @@ namespace Shell
             //    loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
             //    loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
             //}
+            #endregion
             return loads;
         }
 

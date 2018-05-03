@@ -20,7 +20,7 @@ namespace Shell
         {
         }
 
-        //Initialize startcondition
+        //Initialize startcondition and polynomial order
         static bool startDef = true;
         static bool p2 = true;
         static bool p3 = false;
