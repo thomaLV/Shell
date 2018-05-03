@@ -68,12 +68,42 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BDCComponent.cs" />
+    <Compile Include="DeformedGeometry.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="SetMoments.cs" />
+    <Compile Include="SetLoads.cs" />
     <Compile Include="ShellComponent.cs" />
     <Compile Include="ShellInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\BDCs.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Calc.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Draw.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Moments.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Pointloads.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
