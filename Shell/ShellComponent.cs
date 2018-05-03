@@ -160,12 +160,6 @@ namespace Shell
                 int indexB = uniqueNodes.IndexOf(vertices[face.B]);
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
-                #region Old (wrong?) indices
-                //int indexA = face.A;
-                //int indexB = face.B;
-                //int indexC = face.C;
-                #endregion
-
                 Point3d verticeA = vertices[indexA - 1];
                 Point3d verticeB = vertices[indexB - 1];
                 Point3d verticeC = vertices[indexC - 1];
