@@ -47,16 +47,8 @@ namespace Shell
             {
                 rx = i;
             }
-            else if (s == "RY")
-            {
-                ry = i;
-            }
-            else if (s == "RZ")
-            {
-                rz = i;
-            }
-            Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
@@ -125,17 +117,10 @@ namespace Shell
             }
         }
 
-
-
-        /// <summary>
-        /// Gets the unique ID for this component. Do not change this ID after release.
-        /// </summary>
         public override Guid ComponentGuid
         {
             get { return new Guid("58ccdcb8-b1c3-411b-b501-c91a46665e86"); }
         }
-
-
 
         /// Component Visual//
         public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
@@ -244,10 +229,10 @@ namespace Shell
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("X");
-                        if (xColor == GH_Palette.Black) { BDCComponent.setBDC("X", 0); }
-                        if (xColor == GH_Palette.Grey) { BDCComponent.setBDC("X", 1); }
+                        if (xColor == GH_Palette.Black) { setBDC("X", 0); }
+                        if (xColor == GH_Palette.Grey) { setBDC("X", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds2;
                     if (rec.Contains(e.CanvasLocation))
@@ -256,7 +241,7 @@ namespace Shell
                         if (yColor == GH_Palette.Black) { BDCComponent.setBDC("Y", 0); }
                         if (yColor == GH_Palette.Grey) { BDCComponent.setBDC("Y", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds3;
                     if (rec.Contains(e.CanvasLocation))
@@ -265,7 +250,7 @@ namespace Shell
                         if (zColor == GH_Palette.Black) { BDCComponent.setBDC("Z", 0); }
                         if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds4;
                     if (rec.Contains(e.CanvasLocation))
@@ -274,7 +259,7 @@ namespace Shell
                         if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
                         if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds5;
                     if (rec.Contains(e.CanvasLocation))
@@ -283,7 +268,7 @@ namespace Shell
                         if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
                         if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                     rec = ButtonBounds6;
                     if (rec.Contains(e.CanvasLocation))
@@ -292,9 +277,10 @@ namespace Shell
                         if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
                         if (rzColor == GH_Palette.Grey) { BDCComponent.setBDC("RZ", 1); }
                         sender.Refresh();
-                        return GH_ObjectResponse.Handled;
+                        //return GH_ObjectResponse.Handled;
                     }
                 }
+                Owner.ExpireSolution(true);
                 return base.RespondToMouseDown(sender, e);
             }
 

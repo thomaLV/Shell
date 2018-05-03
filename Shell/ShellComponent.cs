@@ -491,8 +491,6 @@ namespace Shell
                 bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
                 bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
-                bdc_value[i * ldofs + 4] = bdcs[bdc_points.IndexOf(point) * ldofs + 4];
-                bdc_value[i * ldofs + 5] = bdcs[bdc_points.IndexOf(point) * ldofs + 5];
             }
             return bdc_value;
         }
