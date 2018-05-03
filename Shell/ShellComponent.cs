@@ -149,13 +149,11 @@ namespace Shell
         {
             var uniqueNodes = new List<Point3d>();
             GetUniqueNodes(vertices, out uniqueNodes);
-            int gdofs = uniqueNodes.Count;
+            int gdofs = uniqueNodes.Count * 4;
             var KG = m.Dense(gdofs, gdofs);
 
             foreach (var face in faces)
             {
-                //OBS! Mtp at vertices-listen kan inneholde overflødige noder bør vi finne indexen til verticen
-                //i uniqueNode-listen isteden. På den måten vil ikke KG få plassering på feil index
                 int indexA = uniqueNodes.IndexOf(vertices[face.A]);
                 int indexB = uniqueNodes.IndexOf(vertices[face.B]);
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
@@ -431,36 +429,32 @@ namespace Shell
             inputLoads.Clear();
             coordlist.Clear();
 
-            #region Moment Loads (disregard)
-            ////parsing moment loads
-            //for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
-            //    {
-            //        string coordstr = (momenttxt[i].Split(':')[0]);
-            //        string loadstr = (momenttxt[i].Split(':')[1]);
+            //parsing moment loads
+            for (int i = 0; i < momenttxt.Count; i++) if (momenttxt[0] != "")
+                {
+                    string coordstr = (momenttxt[i].Split(':')[0]);
+                    string loadstr = (momenttxt[i].Split(':')[1]);
 
-            //        string[] coordstr1 = (coordstr.Split(','));
-            //        string[] loadstr1 = (loadstr.Split(','));
+                    string[] coordstr1 = (coordstr.Split(','));
+                    string[] loadstr1 = (loadstr.Split(','));
 
-            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
-            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
-            //        inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[0]), 2));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
+                    inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
 
 
-            //        coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
-            //    }
+                    coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                }
 
-            ////inputting moment loads at correct index in loads list
-            //foreach (Point3d point in coordlist)
-            //{
-            //    int gNodeIndex = uniqueNodes.IndexOf(point);
-            //    int lNodeIndex = coordlist.IndexOf(point);
-            //    //OBS! Gis moment som moment rundt 3 akser?
-            //    loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
-            //    loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
-            //    loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
-            //}
-            #endregion
-
+            //inputing moment loads at correct index in loads list
+            foreach (Point3d point in coordlist)
+            {
+                int gNodeIndex = uniqueNodes.IndexOf(point);
+                int lNodeIndex = coordlist.IndexOf(point);
+                loads[gNodeIndex * ldofs + 3] = inputLoads[lNodeIndex * 3 + 0];
+                loads[gNodeIndex * ldofs + 4] = inputLoads[lNodeIndex * 3 + 1];
+                loads[gNodeIndex * ldofs + 5] = inputLoads[lNodeIndex * 3 + 2];
+            }
             return loads;
         }
 
@@ -497,6 +491,8 @@ namespace Shell
                 bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
                 bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
+                bdc_value[i * ldofs + 4] = bdcs[bdc_points.IndexOf(point) * ldofs + 4];
+                bdc_value[i * ldofs + 5] = bdcs[bdc_points.IndexOf(point) * ldofs + 5];
             }
             return bdc_value;
         }
