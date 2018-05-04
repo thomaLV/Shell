@@ -3,6 +3,10 @@ using System.Collections.Generic;
 
 using Grasshopper.Kernel;
 using Rhino.Geometry;
+using System.Drawing;
+using Grasshopper.GUI.Canvas;
+using System.Windows.Forms;
+using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
@@ -21,7 +25,27 @@ namespace Shell
         private static int ldofs = 4;
         private static MatrixBuilder<double> m = Matrix<double>.Build;
         private static VectorBuilder<double> v = Vector<double>.Build;
+        static bool startCalc = true;
+        //static bool startTest = false;
 
+        public static void setStart(string s, bool i)
+        {
+            if (s == "Run")
+            {
+                startCalc = i;
+            }
+            //if (s == "Run Test")
+            //{
+            //    startTest = i;
+            //}
+            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
+            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
+        }
+
+        public override void CreateAttributes()
+        {
+            m_attributes = new Attributes_Custom(this);
+        }
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
@@ -29,8 +53,8 @@ namespace Shell
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
             pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300,0.3,10");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
-            pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
-            pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
+            //pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
+            //pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -522,5 +546,108 @@ namespace Shell
         {
             get { return new Guid("3a61d696-911f-46cd-a687-ef48a48575b0"); }
         }
+
+        /// Component Visual//
+        public class Attributes_Custom : Grasshopper.Kernel.Attributes.GH_ComponentAttributes
+        {
+            public Attributes_Custom(GH_Component owner) : base(owner) { }
+            protected override void Layout()
+            {
+                base.Layout();
+
+                Rectangle rec0 = GH_Convert.ToRectangle(Bounds);
+
+                rec0.Height += 22;
+
+                Rectangle rec1 = rec0;
+                rec1.X = rec0.Left + 1;
+                rec1.Y = rec0.Bottom - 22;
+                rec1.Width = (rec0.Width) / 3 + 1;
+                rec1.Height = 22;
+                rec1.Inflate(-2, -2);
+
+                Rectangle rec2 = rec1;
+                rec2.X = rec1.Right + 2;
+
+                Bounds = rec0;
+                ButtonBounds = rec1;
+                ButtonBounds2 = rec2;
+
+            }
+
+            GH_Palette xColor = GH_Palette.Black;
+            GH_Palette yColor = GH_Palette.Grey;
+
+            private Rectangle ButtonBounds { get; set; }
+            private Rectangle ButtonBounds2 { get; set; }
+            private Rectangle ButtonBounds3 { get; set; }
+
+            protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
+            {
+                base.Render(canvas, graphics, channel);
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button;
+                    if (startCalc == true)
+                    {
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run: On", 3, 0);
+                    }
+                    else
+                    {
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run: Off", 3, 0);
+                    }
+                    button.Render(graphics, Selected, false, false);
+                    button.Dispose();
+                }
+                if (channel == GH_CanvasChannel.Objects)
+                {
+                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
+                    button2.Render(graphics, Selected, Owner.Locked, false);
+                    button2.Dispose();
+                }
+            }
+
+            public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    RectangleF rec = ButtonBounds;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run");
+                        if (xColor == GH_Palette.Black) { setStart("Run", true); }
+                        if (xColor == GH_Palette.Grey) { setStart("Run", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Run Test");
+                        if (yColor == GH_Palette.Black) { setStart("Run Test", true); }
+                        if (yColor == GH_Palette.Grey) { setStart("Run Test", false); }
+                        sender.Refresh();
+                        return GH_ObjectResponse.Handled;
+                    }
+                }
+                return base.RespondToMouseDown(sender, e);
+            }
+
+            private void switchColor(string button)
+            {
+                if (button == "Run")
+                {
+                    if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
+                    else { xColor = GH_Palette.Black; }
+                }
+                else if (button == "Run Test")
+                {
+                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                    else { yColor = GH_Palette.Black; }
+                }
+            }
+        }
     }
 }
+
+

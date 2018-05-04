@@ -13,7 +13,7 @@ namespace Shell
     public class BDCComponent : GH_Component
     {
         public BDCComponent()
-          : base("BDCComponent", "BDCs",
+          : base("Shell BDC", "BDCs",
               "Description",
               "Koala", "Shell")
         {
@@ -24,9 +24,6 @@ namespace Shell
         static int y = 0;
         static int z = 0;
         static int rx = 0;
-        static int ry = 0;
-        static int rz = 0;
-
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setBDC(string s, int i)
@@ -61,7 +58,7 @@ namespace Shell
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
-            pManager.AddTextParameter("B.Cond.", "BDC", "Boundary Conditions for 3D Beam Calculation", GH_ParamAccess.list);
+            pManager.AddTextParameter("B.Cond.", "BDC", "Boundary Conditions for Shell element", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -71,13 +68,12 @@ namespace Shell
             List<Point3d> pointList = new List<Point3d>();          //List of points where BDC is to be applied
             List<string> pointInStringFormat = new List<string>();  //output in form of list of strings
 
-
             //Set expected inputs from Indata and aborts with error message if input is incorrect
             if (!DA.GetDataList(0, pointList)) return;
             #endregion
 
             #region Format output
-            string BDCString = x + "," + y + "," + z + "," + rx + "," + ry + "," + rz;
+            string BDCString = x + "," + y + "," + z + "," + rx;
 
             for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
             {
@@ -147,12 +143,7 @@ namespace Shell
 
                 Rectangle rec4 = rec1;
                 rec4.Y = rec1.Bottom + 2;
-
-                Rectangle rec5 = rec4;
-                rec5.X = rec4.Right + 2;
-
-                Rectangle rec6 = rec5;
-                rec6.X = rec2.Right + 2;
+                rec4.Width = rec0.Width - 6;
 
                 Bounds = rec0;
                 BoundsAllButtons = rec0;
@@ -160,8 +151,6 @@ namespace Shell
                 ButtonBounds2 = rec2;
                 ButtonBounds3 = rec3;
                 ButtonBounds4 = rec4;
-                ButtonBounds5 = rec5;
-                ButtonBounds6 = rec6;
 
             }
 
@@ -169,16 +158,12 @@ namespace Shell
             GH_Palette yColor = GH_Palette.Black;
             GH_Palette zColor = GH_Palette.Black;
             GH_Palette rxColor = GH_Palette.Black;
-            GH_Palette ryColor = GH_Palette.Black;
-            GH_Palette rzColor = GH_Palette.Black;
             
             private Rectangle BoundsAllButtons { get; set; }
             private Rectangle ButtonBounds { get; set; }
             private Rectangle ButtonBounds2 { get; set; }
             private Rectangle ButtonBounds3 { get; set; }
             private Rectangle ButtonBounds4 { get; set; }
-            private Rectangle ButtonBounds5 { get; set; }
-            private Rectangle ButtonBounds6 { get; set; }
 
             protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
             {
@@ -203,21 +188,9 @@ namespace Shell
                 }
                 if (channel == GH_CanvasChannel.Objects)
                 {
-                    GH_Capsule button4 = GH_Capsule.CreateTextCapsule(ButtonBounds4, ButtonBounds4, rxColor, "RX", 2, 0);
+                    GH_Capsule button4 = GH_Capsule.CreateTextCapsule(ButtonBounds4, ButtonBounds4, rxColor, "Fix Rotation", 2, 0);
                     button4.Render(graphics, Selected, Owner.Locked, false);
                     button4.Dispose();
-                }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button5 = GH_Capsule.CreateTextCapsule(ButtonBounds5, ButtonBounds5, ryColor, "RY", 2, 0);
-                    button5.Render(graphics, Selected, Owner.Locked, false);
-                    button5.Dispose();
-                }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button6 = GH_Capsule.CreateTextCapsule(ButtonBounds6, ButtonBounds6, rzColor, "RZ", 2, 0);
-                    button6.Render(graphics, Selected, Owner.Locked, false);
-                    button6.Dispose();
                 }
             }
 
@@ -245,16 +218,6 @@ namespace Shell
                     {
                         switchColor("RX");
                     }
-                    rec = ButtonBounds5;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        switchColor("RY");
-                    }
-                    rec = ButtonBounds6;
-                    if (rec.Contains(e.CanvasLocation))
-                    {
-                        switchColor("RZ");
-                    }
                     rec = BoundsAllButtons;
                     if (rec.Contains(e.CanvasLocation))
                     {
@@ -266,10 +229,6 @@ namespace Shell
                         if (zColor == GH_Palette.Grey) { BDCComponent.setBDC("Z", 1); }
                         if (rxColor == GH_Palette.Black) { BDCComponent.setBDC("RX", 0); }
                         if (rxColor == GH_Palette.Grey) { BDCComponent.setBDC("RX", 1); }
-                        if (ryColor == GH_Palette.Black) { BDCComponent.setBDC("RY", 0); }
-                        if (ryColor == GH_Palette.Grey) { BDCComponent.setBDC("RY", 1); }
-                        if (rzColor == GH_Palette.Black) { BDCComponent.setBDC("RZ", 0); }
-                        if (rzColor == GH_Palette.Grey) { BDCComponent.setBDC("RZ", 1); }
                         sender.Refresh();
                         Owner.ExpireSolution(true);
                     }
@@ -299,16 +258,6 @@ namespace Shell
                 {
                     if (rxColor == GH_Palette.Black) { rxColor = GH_Palette.Grey; }
                     else { rxColor = GH_Palette.Black; }
-                }
-                else if (button == "RY")
-                {
-                    if (ryColor == GH_Palette.Black) { ryColor = GH_Palette.Grey; }
-                    else { ryColor = GH_Palette.Black; }
-                }
-                else if (button == "RZ")
-                {
-                    if (rzColor == GH_Palette.Black) { rzColor = GH_Palette.Grey; }
-                    else { rzColor = GH_Palette.Black; }
                 }
             }
         }
