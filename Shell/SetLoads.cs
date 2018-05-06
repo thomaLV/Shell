@@ -9,7 +9,7 @@ namespace Shell
     public class SetLoads : GH_Component
     {
         public SetLoads()
-          : base("SetLoads", "SL",
+          : base("SetLoads Shell", "SL",
               "Description",
               "Koala", "Shell")
         {
@@ -41,8 +41,8 @@ namespace Shell
             //Set expected inputs from Indata
             if (!DA.GetDataList(0, pointList)) return;
             if (!DA.GetDataList(1, loadList)) return;
-            if (DA.GetDataList(2, anglexz)) return;
-            if (DA.GetDataList(3, anglexy)) return;
+            if (!DA.GetDataList(2, anglexz)) return;
+            if (!DA.GetDataList(3, anglexy)) return;
             #endregion
 
             #region Format pointloads

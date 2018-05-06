@@ -22,9 +22,9 @@ namespace Shell
         {
         }
 
-        private static int ldofs = 4;
-        private static MatrixBuilder<double> m = Matrix<double>.Build;
-        private static VectorBuilder<double> v = Vector<double>.Build;
+        //private static int ldofs = 4;
+        //private static MatrixBuilder<double> m = Matrix<double>.Build;
+        //private static VectorBuilder<double> v = Vector<double>.Build;
         static bool startCalc = true;
         //static bool startTest = false;
 
@@ -53,8 +53,6 @@ namespace Shell
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
             pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300,0.3,10");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
-            //pManager.AddTextParameter("PointMoment", "PM", "Moment set in a point in [Nm]", GH_ParamAccess.list, "");
-            //pManager.AddBooleanParameter("Start calculations", "SC", "Set true to start calculations", GH_ParamAccess.item, false);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -69,6 +67,10 @@ namespace Shell
         {
             #region Fetch inputs and assign to variables
 
+            int ldofs = 4;
+            MatrixBuilder<double> m = Matrix<double>.Build;
+            VectorBuilder<double> v = Vector<double>.Build;
+
             //Expected inputs
             Mesh mesh = new Mesh();                         //mesh in Mesh format
             List<MeshFace> faces = new List<MeshFace>();    //faces of mesh as a list
@@ -78,14 +80,14 @@ namespace Shell
             List<string> loadtxt = new List<string>();      //loads in string format
             List<string> momenttxt = new List<string>();    //Moments in string format
             string mattxt = "";                             //Material in string format
-            bool startCalc = false;
+
 
             if (!DA.GetData(0, ref mesh)) return;           //sets inputted mesh into variable
             if (!DA.GetDataList(1, bdctxt)) return;         //sets boundary conditions as string
             if (!DA.GetData(2, ref mattxt)) return;         //sets material properties as string
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
-            if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
-            if (!DA.GetData(5, ref startCalc)) return;      //sets the boolean value for running the calculations
+            //if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
+            //if (!DA.GetData(5, ref startCalc)) return;      //sets the boolean value for running the calculations
 
             if (!startCalc) return; //send return if startCalc is false
 
@@ -291,7 +293,7 @@ namespace Shell
                 { z1, z2, z3 }
             });
 
-            lcoord = T.Multiply(lcoord); //transforms lccord into local coordinate values
+            lcoord = T.Multiply(lcoord); //transforms lcoord into local coordinate values
 
             // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
