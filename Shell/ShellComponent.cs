@@ -84,9 +84,9 @@ namespace Shell
             foreach (var vertice in mesh.Vertices)
             {
                 Point3d temp_vertice = new Point3d();
-                temp_vertice.X = Math.Round(vertice.X, 6);
-                temp_vertice.Y = Math.Round(vertice.Y, 6);
-                temp_vertice.Y = Math.Round(vertice.Z, 6);
+                temp_vertice.X = Math.Round(vertice.X, 4);
+                temp_vertice.Y = Math.Round(vertice.Y, 4);
+                temp_vertice.Z = Math.Round(vertice.Z, 4);
                 vertices.Add(temp_vertice);
             }
 
@@ -489,7 +489,7 @@ namespace Shell
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] bdcstr1 = (bdcstr.Split(','));
 
-                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                bdc_points.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
 
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
