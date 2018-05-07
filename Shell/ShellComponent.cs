@@ -145,16 +145,16 @@ namespace Shell
                 reactions = K_tot.Multiply(def_tot);
 
                 //Calculate the internal strains and stresses in each member
-                CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
+                CalculateInternalStrainsAndStresses(def_tot, uniqueNodes, E, faces, out internalStresses, out internalStrains);
                 #endregion
             }
             else
             {
-                def_tot = Vector<double>.Build.Dense(points.Count * 6);
+                def_tot = Vector<double>.Build.Dense(uniqueNodes.Count * 6);
                 reactions = def_tot;
 
-                internalStresses = new List<double>(geometry.Count);
-                internalStresses.AddRange(new double[geometry.Count]);
+                internalStresses = new List<double>(faces.Count);
+                internalStresses.AddRange(new double[faces.Count]);
                 internalStrains = internalStresses;
             }
 
