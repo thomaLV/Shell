@@ -22,11 +22,7 @@ namespace Shell
         {
         }
 
-        //private static int ldofs = 4;
-        //private static MatrixBuilder<double> m = Matrix<double>.Build;
-        //private static VectorBuilder<double> v = Vector<double>.Build;
         static bool startCalc = true;
-        //static bool startTest = false;
 
         public static void setStart(string s, bool i)
         {
@@ -34,12 +30,6 @@ namespace Shell
             {
                 startCalc = i;
             }
-            //if (s == "Run Test")
-            //{
-            //    startTest = i;
-            //}
-            //Grasshopper.Instances.ActiveCanvas.Document.ExpireSolution();
-            //Grasshopper.Instances.ActiveCanvas.Document.NewSolution(false);
         }
 
         public override void CreateAttributes()
