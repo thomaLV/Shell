@@ -58,8 +58,6 @@ namespace Shell
             #region Fetch inputs and assign to variables
 
             int ldofs = 4;
-            MatrixBuilder<double> m = Matrix<double>.Build;
-            VectorBuilder<double> v = Vector<double>.Build;
 
             //Expected inputs
             Mesh mesh = new Mesh();                         //mesh in Mesh format
@@ -71,13 +69,10 @@ namespace Shell
             List<string> momenttxt = new List<string>();    //Moments in string format
             string mattxt = "";                             //Material in string format
 
-
             if (!DA.GetData(0, ref mesh)) return;           //sets inputted mesh into variable
             if (!DA.GetDataList(1, bdctxt)) return;         //sets boundary conditions as string
             if (!DA.GetData(2, ref mattxt)) return;         //sets material properties as string
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
-            //if (!DA.GetDataList(4, momenttxt)) return;      //sets moment as string
-            //if (!DA.GetData(5, ref startCalc)) return;      //sets the boolean value for running the calculations
 
             if (!startCalc) return; //send return if startCalc is false
 
@@ -88,7 +83,11 @@ namespace Shell
 
             foreach (var vertice in mesh.Vertices)
             {
-                vertices.Add(vertice);
+                Point3d temp_vertice = new Point3d();
+                temp_vertice.X = Math.Round(vertice.X, 6);
+                temp_vertice.Y = Math.Round(vertice.Y, 6);
+                temp_vertice.Y = Math.Round(vertice.Z, 6);
+                vertices.Add(temp_vertice);
             }
 
             List<Point3d> uniqueNodes;
