@@ -172,9 +172,9 @@ namespace Shell
                 int indexB = uniqueNodes.IndexOf(vertices[face.B]);
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
-                Point3d verticeA = vertices[indexA - 1];
-                Point3d verticeB = vertices[indexB - 1];
-                Point3d verticeC = vertices[indexC - 1];
+                Point3d verticeA = vertices[indexA];
+                Point3d verticeB = vertices[indexB];
+                Point3d verticeC = vertices[indexC];
 
                 double x1 = verticeA.X;
                 double x2 = verticeB.X;
