@@ -48,7 +48,7 @@ namespace Shell
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
         }
@@ -121,18 +121,19 @@ namespace Shell
             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
             #endregion
 
-            if (startCalc)
-            {
+            Matrix<double> K_red;
+            Vector<double> load_red;
+
+            
                 #region Create global and reduced stiffness matrix
                 //Create global stiffness matrix
                 Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, 1);
 
                 //Create reduced K-matrix and reduced load list (removed clamped dofs)
-                Matrix<double> K_red;
-                Vector<double> load_red;
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
                 #endregion
-
+            if (startCalc)
+            {
                 #region Calculate deformations, reaction forces and internal strains and stresses
                 //Calculate deformations
                 Vector<double> def_reduced;
@@ -159,7 +160,7 @@ namespace Shell
             }
 
             DA.SetDataList(0, def_tot);
-            //DA.SetDataList(1, reactions);
+            DA.SetDataList(1, K_red.ToString());
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
         }
@@ -257,7 +258,7 @@ namespace Shell
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
                 Point3d verticeA = vertices[indexA];
-                Point3d verticeB = vertices[indexB];
+                Point3d verticeB = vertices[indexB]; //endre til uniquenodes??
                 Point3d verticeC = vertices[indexC];
 
                 double x1 = verticeA.X;
@@ -330,7 +331,7 @@ namespace Shell
             double z3 = zList[2];
 
             // determine angles for tranformation matrix
-            double cosxX = -(x1 - x2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
+            double cosxX = (x1 + x2) / (Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2))));
             double cosxY = -(y1 - y2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
             double cosxZ = -(z1 - z2) / Math.Pow((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)), (1 / 2));
             double cosyX = ((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))) / Math.Pow((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)), (1 / 2));
