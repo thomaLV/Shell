@@ -152,7 +152,7 @@ namespace Shell
             uniqueNodes = new List<Point3d>();
             for (int i = 0; i < vertices.Count; i++)
             {
-                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 2), Math.Round(vertices[i].Y, 2), Math.Round(vertices[i].Z, 2));
+                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 4), Math.Round(vertices[i].Y, 4), Math.Round(vertices[i].Z, 4));
                 if (!uniqueNodes.Contains(tempNode))
                 {
                     uniqueNodes.Add(tempNode);
