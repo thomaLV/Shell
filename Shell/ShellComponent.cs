@@ -107,29 +107,114 @@ namespace Shell
             double t;       //Thickness of shell
             SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu, out t);
 
+            Vector<double> def_tot;
+            Vector<double> reactions;
+            List<double> internalStresses;
+            List<double> internalStrains;
 
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
-
-
-            //Interpreting input load (text) and creating load list (double)
-            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
+            List<int> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
+            
+             //Interpreting input load (text) and creating load list (double)
+             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
             #endregion
 
-            #region Create global and reduced stiffness matrix
-            //Create global stiffness matrix
-            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, 1);
+            if (startCalc)
+            {
+                #region Create global and reduced stiffness matrix
+                //Create global stiffness matrix
+                Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, 1);
 
-            //Create reduced K-matrix and reduced load list (removed clamped dofs)
-            Matrix<double> K_red;
-            Vector<double> load_red;
-            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
-            #endregion
+                //Create reduced K-matrix and reduced load list (removed clamped dofs)
+                Matrix<double> K_red;
+                Vector<double> load_red;
+                CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+                #endregion
+
+                #region Calculate deformations, reaction forces and internal strains and stresses
+                //Calculate deformations
+                Vector<double> def_reduced;
+                def_reduced = K_red.Cholesky().Solve(load_red);
+
+                //Add the clamped dofs (= 0) to the deformations list
+                def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
+
+                //Calculate the reaction forces from the deformations
+                reactions = K_tot.Multiply(def_tot);
+
+                //Calculate the internal strains and stresses in each member
+                CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
+                #endregion
+            }
+            else
+            {
+                def_tot = Vector<double>.Build.Dense(points.Count * 6);
+                reactions = def_tot;
+
+                internalStresses = new List<double>(geometry.Count);
+                internalStresses.AddRange(new double[geometry.Count]);
+                internalStrains = internalStresses;
+            }
+
+            DA.SetDataList(0, def_tot);
+            DA.SetDataList(1, reactions);
+            DA.SetDataList(2, internalStresses);
+            DA.SetDataList(3, internalStrains);
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
+        {
+            //preallocating lists
+            internalStresses = new List<double>(geometry.Count);
+            internalStrains = new List<double>(geometry.Count);
+
+            foreach (Line line in geometry)
+            {
+                int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 5), Math.Round(line.From.Y, 5), Math.Round(line.From.Z, 5)));
+                int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 5), Math.Round(line.To.Y, 5), Math.Round(line.To.Z, 5)));
+
+                //fetching deformation of point
+                double x1 = def[index1 * 3 + 0];
+                double y1 = def[index1 * 3 + 1];
+                double z1 = def[index1 * 3 + 2];
+                double x2 = def[index2 * 3 + 0];
+                double y2 = def[index2 * 3 + 1];
+                double z2 = def[index2 * 3 + 2];
+
+                //new node coordinates for deformed nodes
+                double nx1 = points[index1].X + x1;
+                double ny1 = points[index1].X + y1;
+                double nz1 = points[index1].Z + z1;
+                double nx2 = points[index2].X + x2;
+                double ny2 = points[index2].X + y2;
+                double nz2 = points[index2].Z + z2;
+
+                //calculating dL = length of deformed line - original length of line
+                double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
+
+                //calculating strain and stress
+                internalStrains.Add(dL / line.Length);
+                internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
+            }
+        }
+
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, List<int> bdc_value)
+        {
+            Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
+            for (int i = 0, j = 0; i < bdc_value.Count; i++)
+            {
+                if (bdc_value[i] == 1)
+                {
+                    def[i] = deformations_red[j];
+                    j++;
+                }
+            }
+            return def;
+        }
+
+        private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -187,13 +272,13 @@ namespace Shell
                 double z2 = verticeB.Z;
                 double z3 = verticeC.Z;
 
-                double[] xList = new double[3] { x1, x2, x3 };
-                double[] yList = new double[3] { y1, y2, y3 };
-                double[] zList = new double[3] { z1, z2, z3 };
+                double[] xList = new double[4] { x1, x2, x3, x1 };
+                double[] yList = new double[4] { y1, y2, y3, y1 };
+                double[] zList = new double[4] { z1, z2, z3, z1 };
 
-                double area = 1 / 2 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
+                double Area = 0.5 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
 
-                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, area, E, t, nu);
+                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, Area, E, t, nu);
 
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int row = 0; row < ldofs; row++)
@@ -269,9 +354,12 @@ namespace Shell
 
             // assemble the full transformation matrix T for the entire element
             Matrix<double> one = Matrix<double>.Build.Dense(1, 1, 1);
-            tf = tf.DiagonalStack(one);
-            var T = tf.DiagonalStack(tf);
+            var T = tf;
+            T = T.DiagonalStack(one);
             T = T.DiagonalStack(tf);
+            T = T.DiagonalStack(one);
+            T = T.DiagonalStack(tf);
+            T = T.DiagonalStack(one);
             Matrix<double> T_T = T.Transpose(); // and the transposed tranformation matrix
 
             // initiates the local coordinate matrix, initiated with global coordinates
@@ -282,7 +370,7 @@ namespace Shell
                 { z1, z2, z3 }
             });
 
-            lcoord = T.Multiply(lcoord); //transforms lcoord into local coordinate values
+            lcoord = tf.Multiply(lcoord); //transforms lcoord into local coordinate values
 
             // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
@@ -291,6 +379,15 @@ namespace Shell
             y1 = lcoord[1, 0];
             y1 = lcoord[1, 1];
             y1 = lcoord[1, 2];
+
+            for (int i = 0; i < 3; i++)
+            {
+                xList[i] = lcoord[0, i];
+                yList[i] = lcoord[1, i];
+                zList[i] = lcoord[2, i];
+            }
+            xList[3] = lcoord[0, 0];
+            yList[3] = lcoord[1, 0];
 
             // defines variables for simplicity
             double x13 = x1 - x3;
@@ -302,7 +399,7 @@ namespace Shell
             double[] my = new double[3];
             double[] a = new double[3];
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 3; i++)
             {
                 double c, s;
                 double len = Math.Sqrt(Math.Pow(xList[i + 1] - xList[i], 2) + Math.Pow(yList[i + 1] - yList[i], 2));
@@ -426,7 +523,7 @@ namespace Shell
                 inputLoads.Add(Math.Round(double.Parse(loadstr1[1]), 2));
                 inputLoads.Add(Math.Round(double.Parse(loadstr1[2]), 2));
 
-                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 2), Math.Round(double.Parse(coordstr1[1]), 2), Math.Round(double.Parse(coordstr1[2]), 2)));
+                coordlist.Add(new Point3d(Math.Round(double.Parse(coordstr1[0]), 4), Math.Round(double.Parse(coordstr1[1]), 4), Math.Round(double.Parse(coordstr1[2]), 4)));
             }
 
             //inputting point loads at correct index in loads list
@@ -473,10 +570,10 @@ namespace Shell
             return loads;
         }
 
-        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
+        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
-            var bdc_value = Vector<double>.Build.Dense(uniqueNodes.Count * ldofs, 1);
+            List<int> bdc_value = new List<int>(uniqueNodes.Count * ldofs);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
