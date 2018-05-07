@@ -111,7 +111,7 @@ namespace Shell
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
+            Vector<int> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
 
 
             //Interpreting input load (text) and creating load list (double)
@@ -129,7 +129,7 @@ namespace Shell
             #endregion
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -473,10 +473,10 @@ namespace Shell
             return loads;
         }
 
-        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
+        private Vector<int> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
-            var bdc_value = Vector<double>.Build.Dense(uniqueNodes.Count * ldofs, 1);
+            Vector<int> bdc_value = Vector<int>.Build.Dense(uniqueNodes.Count * ldofs, 1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
