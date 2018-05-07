@@ -71,7 +71,7 @@ namespace Shell
             //Set expected inputs from Indata and aborts with error message if input is incorrect
             if (!DA.GetDataList(0, pointList)) return;
             #endregion
-
+            
             #region Format output
             string BDCString = x + "," + y + "," + z + "," + rx;
 

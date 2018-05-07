@@ -109,16 +109,16 @@ namespace Shell
 
             Vector<double> def_tot;
             Vector<double> reactions;
-            List<double> internalStresses;
-            List<double> internalStrains;
+            //List<double> internalStresses;
+            //List<double> internalStrains;
 
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            List<int> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
             
-             //Interpreting input load (text) and creating load list (double)
-             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
+            //Interpreting input load (text) and creating load list (double)
+            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
             #endregion
 
             if (startCalc)
@@ -145,23 +145,23 @@ namespace Shell
                 reactions = K_tot.Multiply(def_tot);
 
                 //Calculate the internal strains and stresses in each member
-                CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
+                //CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
                 #endregion
             }
             else
             {
-                def_tot = Vector<double>.Build.Dense(points.Count * 6);
-                reactions = def_tot;
+                def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                //reactions = def_tot;
 
-                internalStresses = new List<double>(geometry.Count);
-                internalStresses.AddRange(new double[geometry.Count]);
-                internalStrains = internalStresses;
+                //internalStresses = new List<double>(geometry.Count);
+                //internalStresses.AddRange(new double[geometry.Count]);
+                //internalStrains = internalStresses;
             }
 
             DA.SetDataList(0, def_tot);
-            DA.SetDataList(1, reactions);
-            DA.SetDataList(2, internalStresses);
-            DA.SetDataList(3, internalStrains);
+            //DA.SetDataList(1, reactions);
+            //DA.SetDataList(2, internalStresses);
+            //DA.SetDataList(3, internalStrains);
         }
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
@@ -200,7 +200,7 @@ namespace Shell
             }
         }
 
-        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, List<int> bdc_value)
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
@@ -214,7 +214,7 @@ namespace Shell
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(List<int> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
             K_red = Matrix<double>.Build.DenseOfMatrix(K);
             List<double> load_redu = new List<double>(load);
@@ -570,10 +570,10 @@ namespace Shell
             return loads;
         }
 
-        private List<int> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
-            List<int> bdc_value = new List<int>(uniqueNodes.Count * ldofs);
+            Vector<double> bdc_value = Vector.Build.Dense(uniqueNodes.Count * ldofs,1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
 
