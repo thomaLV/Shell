@@ -321,7 +321,10 @@ namespace Shell
 
         private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
         {
-            // get global coordinates
+
+            #region Get global coordinates and transform into local cartesian system
+
+            // fetching global coordinates
             double x1 = xList[0];
             double x2 = xList[1];
             double x3 = xList[2];
@@ -357,7 +360,7 @@ namespace Shell
             tf[2, 1] = coszY;
             tf[2, 2] = coszZ;
 
-            // assemble the full transformation matrix T for the entire element
+            // assemble the full transformation matrix T for the entire element (12x12 matrix)
             Matrix<double> one = Matrix<double>.Build.Dense(1, 1, 1);
             var T = tf;
             T = T.DiagonalStack(one);
@@ -375,7 +378,8 @@ namespace Shell
                 { z1, z2, z3 }
             });
 
-            lcoord = tf.Multiply(lcoord); //transforms lcoord into local coordinate values
+            //transforms lcoord into local coordinate values
+            lcoord = tf.Multiply(lcoord);
 
             // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
@@ -386,12 +390,24 @@ namespace Shell
             y3 = lcoord[1, 2];
             z1 = lcoord[2, 0];
             z2 = lcoord[2, 1];
-            z3 = lcoord[2, 2];
+            z3 = lcoord[2, 2]; // Note that z1 = z2 = z3, if all goes after the grand plan
+
+            #endregion
+
+            // Establishes the general stiffness matrix - !!CHECK THE CORRECT NAME OF THIS!!
+            Matrix<double> C = Matrix<double>.Build.Dense(3, 3);
+            C[0, 0] = 1;
+            C[0, 1] = nu;
+            C[1, 0] = nu;
+            C[1, 1] = 1;
+            C[2, 2] = 1 / 2 - nu / 2;
+
+            double C_add = E / (1 - Math.Pow(nu,2));
+
+            #region Morley Bending Triangle -- Bending part of element
 
             Matrix<double> lcoord_temp = Matrix<double>.Build.DenseOfArray(new double[,] { { x1 }, { y1 }, { z1 } });
             lcoord = lcoord.Append(lcoord_temp);
-
-            // strain = Bb*vb
 
             // defines variables for simplicity
             double x13 = x1 - x3;
@@ -436,6 +452,60 @@ namespace Shell
             double a4 = a[0];
             double a5 = a[1];
             double a6 = a[2];
+
+            Matrix<double> Bk_b = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
+
+            Bk_b[0, 0] = 2 * Math.Pow(y23, 2) - (2 * ga6 * y23 * y31) / my6;
+            Bk_b[0, 1] = 2 * Math.Pow(y31, 2) - (2 * my5 * y23 * y31) / ga5;
+            Bk_b[0, 2] = 2 * y23 * y31 * (a5 / ga5 + a6 / my6);
+            Bk_b[0, 4] = (2 * y23 * y31) / ga5;
+            Bk_b[0, 5] = (2 * y23 * y31) / my6;
+            Bk_b[1, 0] = 2 * Math.Pow(x32, 2) - (2 * ga6 * x13 * x32) / my6;
+            Bk_b[1, 1] = 2 * Math.Pow(x13, 2) - (2 * my5 * x13 * x32) / ga5;
+            Bk_b[1, 2] = 2 * x13 * x32 * (a5 / ga5 + a6 / my6);
+            Bk_b[1, 4] = (2 * x13 * x32) / ga5;
+            Bk_b[1, 5] = (2 * x13 * x32) / my6;
+            Bk_b[2, 0] = 4 * x32 * y23 - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / my6;
+            Bk_b[2, 1] = 4 * x13 * y31 - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / ga5;
+            Bk_b[2, 2] = (2 * x13 * y23 + 2 * x32 * y31) * (a5 / ga5 + a6 / my6);
+            Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
+            Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
+
+            double H_add = 1 / (4 * Math.Pow(Area, 2));
+
+            Matrix<double> Bk_b_T = Bk_b.Transpose();
+
+            Matrix<double> ke_b = C.Multiply(Bk_b); // the bending part of the element stiffness matrix
+            ke_b = Bk_b_T.Multiply(ke_b);
+            double ke_b_add = (Area * t * t * t) / 12;
+            ke_b = ke_b.Multiply(C_add * H_add * ke_b_add);
+
+            #endregion
+
+
+            #region Constant Strain/Stress Triangle (CST) -- Membrane part of element
+
+            Matrix<double> Bk_m = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
+
+            Bk_m[0, 0] = (y2 - y3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[0, 2] = -(y1 - y3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[0, 4] = (y1 - y2) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[1, 1] = -(x2 - x3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[1, 3] = (x1 - x3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[1, 5] = -(x1 - x2) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 0] = -(x2 - x3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 1] = (y2 - y3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 2] = (x1 - x3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 3] = -(y1 - y3) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 4] = -(x1 - x2) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+            Bk_m[2, 5] = (y1 - y2) / (x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2);
+
+            Matrix<double> Bk_m_T = Bk_m.Transpose();
+
+
+
+            #endregion
+
 
             Matrix<double> ke = Matrix<double>.Build.Dense(12, 12);
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
