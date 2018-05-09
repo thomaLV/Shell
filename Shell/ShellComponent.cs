@@ -22,7 +22,7 @@ namespace Shell
         {
         }
 
-        static bool startCalc = true;
+        static bool startCalc = false;
 
         public static void setStart(string s, bool i)
         {
@@ -48,7 +48,7 @@ namespace Shell
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
+            pManager.AddTextParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
         }
@@ -73,8 +73,6 @@ namespace Shell
             if (!DA.GetDataList(1, bdctxt)) return;         //sets boundary conditions as string
             if (!DA.GetData(2, ref mattxt)) return;         //sets material properties as string
             if (!DA.GetDataList(3, loadtxt)) return;        //sets load as string
-
-            if (!startCalc) return; //send return if startCalc is false
 
             foreach (var face in mesh.Faces)
             {
@@ -125,13 +123,16 @@ namespace Shell
             Vector<double> load_red;
 
             
-                #region Create global and reduced stiffness matrix
-                //Create global stiffness matrix
-                Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, 1);
+            #region Create global and reduced stiffness matrix
 
-                //Create reduced K-matrix and reduced load list (removed clamped dofs)
-                CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
-                #endregion
+            //Create global stiffness matrix
+            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, t);
+            
+            //Create reduced K-matrix and reduced load list (removed clamped dofs)
+            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+
+            #endregion
+
             if (startCalc)
             {
                 #region Calculate deformations, reaction forces and internal strains and stresses
@@ -160,7 +161,7 @@ namespace Shell
             }
 
             DA.SetDataList(0, def_tot);
-            DA.SetDataList(1, K_red.ToString());
+            DA.SetData(1, K_red.ToString());
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
         }
@@ -283,7 +284,7 @@ namespace Shell
 
                 double Area = 0.5 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
 
-                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, Area, E, t, nu);
+                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, Area, E, nu, t);
 
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int row = 0; row < ldofs; row++)
@@ -402,7 +403,7 @@ namespace Shell
             C[1, 1] = 1;
             C[2, 2] = 1 / 2 - nu / 2;
 
-            double C_add = E / (1 - Math.Pow(nu,2));
+            double C_add = E / (1 - Math.Pow(nu,2)); // additional part to add to every indice in C matrix
 
             #region Morley Bending Triangle -- Bending part of element
 
@@ -471,14 +472,14 @@ namespace Shell
             Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
             Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
 
-            double H_add = 1 / (4 * Math.Pow(Area, 2));
+            Bk_b = Bk_b.Multiply(1 / (4 * Math.Pow(Area, 2))); // additional part to add to every indice in B matrix
 
             Matrix<double> Bk_b_T = Bk_b.Transpose();
 
             Matrix<double> ke_b = C.Multiply(Bk_b); // the bending part of the element stiffness matrix
             ke_b = Bk_b_T.Multiply(ke_b);
-            double ke_b_add = (Area * t * t * t) / 12;
-            ke_b = ke_b.Multiply(C_add * H_add * ke_b_add);
+            double ke_b_add = (Area * t * t * t) / 12; // additional part to add to every indice in ke_b matrix
+            ke_b = ke_b.Multiply(C_add * ke_b_add);
 
             #endregion
 
@@ -502,12 +503,18 @@ namespace Shell
 
             Matrix<double> Bk_m_T = Bk_m.Transpose();
 
-
+            Matrix<double> ke_m = C.Multiply(Bk_m); // the membrane part of the element stiffness matrix
+            ke_m = Bk_m_T.Multiply(ke_m);
+            ke_m = ke_m.Multiply(C_add * Area * t);
 
             #endregion
 
+            // input membrane and bending part into full element stiffness matrix
+            // and stacking them according to [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3] 
+            Matrix<double> ke = ke_m.DiagonalStack(ke_b);
+            ke = SymmetricRearrangeMatrix(ke, new int[]{ 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11});
+            
 
-            Matrix<double> ke = Matrix<double>.Build.Dense(12, 12);
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
             //ke[0, 0] = -(Area * E * t * (Math.Pow(x2, 2) - 4 * y2 * y3 - nu * Math.Pow(x2, 2) - nu * Math.Pow(x3, 2) - 2 * x2 * x3 + Math.Pow(x3, 2) + 2 * Math.Pow(y2, 2) + 2 * Math.Pow(y3, 2) + 2 * nu * x2 * x3)) / (2 * (Math.Pow(nu, 2) - 1) * Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2));
             //ke[0, 1] = (Area * E * t * (x2 - x3) * (y2 - y3) * (nu + 1)) / (2 * (Math.Pow(nu, 2) - 1) * Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2));
@@ -575,6 +582,20 @@ namespace Shell
             Ke = T_T.Multiply(Ke);
 
             return Ke;
+        }
+
+        private Matrix<double> SymmetricRearrangeMatrix(Matrix<double> M, int[] arrangement)
+        {
+            Matrix<double> M_new = Matrix<double>.Build.Dense(12,12);
+
+            for (int i = 0; i < 12; i++)
+            {
+                for (int j = 0; j < 12; j++)
+                {
+                    M_new[i, j] = M[arrangement[i], arrangement[j]];
+                }
+            }
+            return M_new;
         }
 
         private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
@@ -756,7 +777,7 @@ namespace Shell
                     }
                     else
                     {
-                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run: Off", 3, 0);
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, yColor, "Run: Off", 3, 0);
                     }
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();
