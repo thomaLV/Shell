@@ -485,14 +485,15 @@ namespace Shell
             Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
             Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
 
-            Bk_b = Bk_b.Multiply(1 / (4.0 * Math.Pow(Area, 2))); // additional part to add to every indice in B matrix
+            double Bk_b_add = 1 / (4.0 * Math.Pow(Area, 2)); // additional part to add to every indice in B matrix
 
             Matrix<double> Bk_b_T = Bk_b.Transpose();
 
             Matrix<double> ke_b = C.Multiply(Bk_b); // the bending part of the element stiffness matrix
             ke_b = Bk_b_T.Multiply(ke_b);
             double ke_b_add = (Area * t * t * t) / 12; // additional part to add to every indice in ke_b matrix
-            ke_b = ke_b.Multiply(C_add * ke_b_add);
+            ke_b_add = ke_b_add * Bk_b_add * C_add * Bk_b_add; // multiply upp all additional parts
+            ke_b = ke_b.Multiply(ke_b_add);
 
 #endregion
 
@@ -527,6 +528,8 @@ namespace Shell
             Matrix<double> ke = ke_m.DiagonalStack(ke_b);
             ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 });
 
+
+            #region Directly calculate ke
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
             //Matrix<double> ke = Matrix<double>.Build.Dense(12, 12);
             //ke[0, 0] = -(Area * E * t * (Math.Pow(x2, 2) - 4 * y2 * y3 - nu * Math.Pow(x2, 2) - nu * Math.Pow(x3, 2) - 2 * x2 * x3 + Math.Pow(x3, 2) + 2 * Math.Pow(y2, 2) + 2 * Math.Pow(y3, 2) + 2 * nu * x2 * x3)) / (2 * (Math.Pow(nu, 2) - 1) * Math.Pow((x1 * y2 - x2 * y1 - x1 * y3 + x3 * y1 + x2 * y3 - x3 * y2), 2));
@@ -590,7 +593,9 @@ namespace Shell
             //ke[11, 7] = -(E * Math.Pow(t, 3) * (2 * Math.Pow(x13, 2) * Math.Pow(x32, 2) + Math.Pow(x13, 2) * Math.Pow(y23, 2) + Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * Math.Pow(y23, 2) * Math.Pow(y31, 2) - nu * Math.Pow(x13, 2) * Math.Pow(y23, 2) - nu * Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * x13 * x32 * y23 * y31 + 2 * nu * x13 * x32 * y23 * y31)) / (96 * Math.Pow(Area, 3) * ga5 * my6 * (Math.Pow(nu, 2) - 1));
             //ke[11, 10] = -(E * Math.Pow(t, 3) * (a6 * ga5 + a5 * my6) * (2 * Math.Pow(x13, 2) * Math.Pow(x32, 2) + Math.Pow(x13, 2) * Math.Pow(y23, 2) + Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * Math.Pow(y23, 2) * Math.Pow(y31, 2) - nu * Math.Pow(x13, 2) * Math.Pow(y23, 2) - nu * Math.Pow(x32, 2) * Math.Pow(y31, 2) + 2 * x13 * x32 * y23 * y31 + 2 * nu * x13 * x32 * y23 * y31)) / (96 * Math.Pow(Area, 3) * ga5 * Math.Pow(my6, 2) * (Math.Pow(nu, 2) - 1));
             //ke[11, 11] = -(E * Math.Pow(t, 3) * ((2 * x13 * x32 * ((2 * x13 * x32) / my6 + (2 * nu * y23 * y31) / my6)) / my6 - (Math.Pow((2 * x13 * y23 + 2 * x32 * y31), 2) * (nu / 2 - 1 / 2)) / Math.Pow(my6, 2) + (2 * y23 * y31 * ((2 * y23 * y31) / my6 + (2 * nu * x13 * x32) / my6)) / my6)) / (192 * Math.Pow(Area, 3) * (Math.Pow(nu, 2) - 1));
-            
+            #endregion
+
+
             Matrix<double> Ke = ke.Multiply(T);
             Ke = T_T.Multiply(Ke);
 
