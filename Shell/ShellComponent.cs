@@ -292,9 +292,7 @@ namespace Shell
                 double[] yList = new double[4] { y1, y2, y3, y1 };
                 double[] zList = new double[4] { z1, z2, z3, z1 };
 
-                double Area = 0.5 * Math.Sqrt(Math.Pow(x2 * y3 - x3 * y2, 2) + Math.Pow(x3 * y1 - x1 * y3, 2) + Math.Pow(x1 * y2 - x2 * y1, 2));
-
-                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, Area, E, nu, t);
+                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, E, nu, t);
 
                 //Inputting values to correct entries in Global Stiffness Matrix
                 for (int row = 0; row < ldofs; row++)
@@ -330,7 +328,7 @@ namespace Shell
             return KG;
         }
 
-        private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double Area, double E, double nu, double t)
+        private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double E, double nu, double t)
         {
 
             #region Get global coordinates and transform into local cartesian system
@@ -349,15 +347,18 @@ namespace Shell
             double z3 = zList[2];
 
             // determine angles for tranformation matrix
-            double cosxX = (x1 + x2) / (Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2))));
-            double cosxY = (y1 + y2) / Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)));
-            double cosxZ = (z1 + z2) / Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)));
-            double cosyX = ((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))) / Math.Sqrt((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)));
-            double cosyY = -((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Math.Sqrt((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)));
-            double cosyZ = -((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Math.Sqrt((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)));
-            double coszX = ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)) / Math.Sqrt((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)));
-            double coszY = -((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) / Math.Sqrt((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)));
-            double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Math.Sqrt((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)));
+            double Lx = Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)));
+            double cosxX = -(x1 - x2) / Lx;
+            double cosxY = -(y1 - y2) / Lx;
+            double cosxZ = -(z1 - z2) / Lx;
+            double Ly = Math.Sqrt((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)));
+            double cosyX = ((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))) / Ly;
+            double cosyY = -((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Ly;
+            double cosyZ = -((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Ly;
+            double Lz = Math.Sqrt((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)));
+            double coszX = ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)) / Lz;
+            double coszY = -((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) / Lz;
+            double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Lz;
 
             // assembling nodal x,y,z tranformation matrix tf
             Matrix<double> tf = Matrix<double>.Build.Dense(3, 3);
@@ -405,13 +406,15 @@ namespace Shell
 
             #endregion
 
-            // Establishes the general stiffness matrix - !!CHECK THE CORRECT NAME OF THIS!!
+            double Area = Math.Abs(0.5 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)));
+
+            // Establishes the general flexural rigidity matrix for plate
             Matrix<double> C = Matrix<double>.Build.Dense(3, 3);
             C[0, 0] = 1;
             C[0, 1] = nu;
             C[1, 0] = nu;
             C[1, 1] = 1;
-            C[2, 2] = 1 / 2 - nu / 2;
+            C[2, 2] = (1 - nu)*0.5;
 
             double C_add = E / (1 - Math.Pow(nu, 2)); // additional part to add to every indice in C matrix
 
@@ -482,7 +485,7 @@ namespace Shell
             Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
             Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
 
-            Bk_b = Bk_b.Multiply(1 / (4 * Math.Pow(Area, 2))); // additional part to add to every indice in B matrix
+            Bk_b = Bk_b.Multiply(1 / (4.0 * Math.Pow(Area, 2))); // additional part to add to every indice in B matrix
 
             Matrix<double> Bk_b_T = Bk_b.Transpose();
 
