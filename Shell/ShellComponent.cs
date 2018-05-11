@@ -10,6 +10,7 @@ using Grasshopper.GUI;
 
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
+using System.Diagnostics;
 
 namespace Shell
 {
@@ -22,7 +23,8 @@ namespace Shell
         {
         }
 
-        static bool startCalc = false;
+        static bool startCalc = true;
+        static bool startest = true;
 
         public static void setStart(string s, bool i)
         {
@@ -122,33 +124,52 @@ namespace Shell
             Matrix<double> K_red;
             Vector<double> load_red;
 
-            
+            String time = "TrySolve Start:" + Environment.NewLine;
+            long timer = 0;
+            Stopwatch watch = new Stopwatch();
+
+
             #region Create global and reduced stiffness matrix
 
             //Create global stiffness matrix
+
+            watch.Start();
             Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, t);
-            
+            watch.Stop();
+            timer = watch.ElapsedMilliseconds - timer;
+            time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
+
             //Create reduced K-matrix and reduced load list (removed clamped dofs)
+
+            watch.Start();
             CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
-            bool test = K_red.IsSymmetric();
-            for (int i = 0; i < 12; i++)
-            {
-                for (int j = 0; j < 12; j++)
-                {
-                    K_red[i, j] = Math.Round(K_red[i, j],2);
-                }
-            }
-            test = K_red.IsSymmetric();
-
-
+            watch.Stop();
+            timer = watch.ElapsedMilliseconds - timer;
+            time += "Reduce global stiffness matrix: " + timer.ToString() + Environment.NewLine;
+            
             #endregion
+
 
             if (startCalc)
             {
+
                 #region Calculate deformations, reaction forces and internal strains and stresses
+
                 //Calculate deformations
-                Vector<double> def_reduced;
-                def_reduced = K_red.Cholesky().Solve(load_red);
+                Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
+                try
+                {
+                    watch.Start();
+                    def_reduced = K_red.Cholesky().Solve(load_red);
+                    watch.Stop();
+                    timer = watch.ElapsedMilliseconds - timer;
+                    time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
+                }
+                catch (Exception)
+                {
+                    time += "Cholesky solve: Error " + timer.ToString() + Environment.NewLine;
+                }
+                
 
                 //Add the clamped dofs (= 0) to the deformations list
                 def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
@@ -171,7 +192,7 @@ namespace Shell
             }
 
             DA.SetDataList(0, def_tot);
-            DA.SetData(1, K_red.ToString());
+            DA.SetData(1, time.ToString());
             //DA.SetDataList(2, internalStresses);
             //DA.SetDataList(3, internalStrains);
         }
@@ -816,9 +837,9 @@ namespace Shell
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("Run");
-                        if (xColor == GH_Palette.Black) { setStart("Run", true); }
-                        if (xColor == GH_Palette.Grey) { setStart("Run", false); }
-                        Owner.ExpireSolution(true);
+                        if (xColor == GH_Palette.Black) { setStart("Run", true); Owner.ExpireSolution(true); }
+                        if (xColor == GH_Palette.Grey) { setStart("Run", false); Owner.ExpireSolution(true); }
+                        
                         sender.Refresh();
                         return GH_ObjectResponse.Handled;
                     }
