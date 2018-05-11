@@ -251,17 +251,42 @@ namespace Shell
             int size = Convert.ToInt16(bdc_value.Sum())*4;
             K_red = Matrix<double>.Build.Dense(size,size,1);
             List<double> load_redu = new List<double>(size);
-            for (int i = 0, j = 0; i < load.Count; i++)
+
+            int skipi = 0;
+            for (int i = 0; i < size; i++)
             {
-                //remove clamped dofs
-                if (bdc_value[i] == 0)
+                if (bdc_value[i] == 1)
                 {
-                    K_red = K_red.RemoveRow(i - j);
-                    K_red = K_red.RemoveColumn(i - j);
-                    load_redu.RemoveAt(i - j);
-                    j++;
+                    int skipj = 0;
+                    for (int j = 0; j < size; j++)
+                    {
+                        if (bdc_value[j] == 1)
+                        {
+                            K_red[i - skipi, j - skipj] = K[i, j];
+                        }
+                        else
+                        {
+                            skipj += 1;
+                        }
+                    }
+                }
+                else
+                {
+                    skipi += 1;
                 }
             }
+
+            //for (int i = 0, j=0; i < size; i++)
+            //{
+            //    //remove clamped dofs
+            //    if (bdc_value[i] == 0)
+            //    {
+            //        K_red = K_red.RemoveRow(i - j);
+            //        K_red = K_red.RemoveColumn(i - j);
+            //        load_redu.RemoveAt(i - j);
+            //        j++;
+            //    }
+            //}
             load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
