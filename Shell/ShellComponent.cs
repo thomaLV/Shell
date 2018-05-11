@@ -24,7 +24,6 @@ namespace Shell
         }
 
         static bool startCalc = true;
-        static bool startest = true;
 
         public static void setStart(string s, bool i)
         {
@@ -249,8 +248,9 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            K_red = Matrix<double>.Build.DenseOfMatrix(K);
-            List<double> load_redu = new List<double>(load);
+            int size = Convert.ToInt16(bdc_value.Sum())*4;
+            K_red = Matrix<double>.Build.Dense(size,size,1);
+            List<double> load_redu = new List<double>(size);
             for (int i = 0, j = 0; i < load.Count; i++)
             {
                 //remove clamped dofs
