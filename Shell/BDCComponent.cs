@@ -79,6 +79,17 @@ namespace Shell
             if (!DA.GetData(1, ref mesh)) return;           //sets inputted mesh into variable
             #endregion
 
+            for (int i = 0; i < pointList.Count; i++)
+            {
+                Point3d temp_point = new Point3d();
+                temp_point.X = Math.Round(pointList[i].X, 4);
+                temp_point.X = Math.Round(pointList[i].Y, 4);
+                temp_point.X = Math.Round(pointList[i].Z, 4);
+                pointList[i] = temp_point;
+
+            }
+    
+
             foreach (var face in mesh.Faces)
             {
                 faces.Add(face);
@@ -121,24 +132,58 @@ namespace Shell
             DA.SetDataList(0, pointInStringFormat);
         } //End of main program
 
-        private string GetMeshIndices(List<Point3d> pointList, int ind, List<MeshFace> faces, List<Point3d> vertices, List<Point3d> uNodes)
+        private int[] GetMeshIndices(List<Point3d> pointList, List<MeshFace> faces, List<Point3d> vertices, List<Point3d> uNodes)
         {
-            throw new NotImplementedException();
-        }
-
-        private List<Point3d> GetUniqueNodes(List<Point3d> vertices)
-        {
-            var uniqueNodes = new List<Point3d>();
-            for (int i = 0; i < vertices.Count; i++)
+            int[] indices;
+            int bsum = 0;
+            for (int i = 0; i < pointList.Count; i++)
             {
-                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 4), Math.Round(vertices[i].Y, 4), Math.Round(vertices[i].Z, 4));
-                if (!uniqueNodes.Contains(tempNode))
+                for (int j = 0; j < faces.Count; j++)
                 {
-                    uniqueNodes.Add(tempNode);
+                    if (pointList[i] == vertices[faces[j].A]) bsum++;
+                    if (pointList[i] == vertices[faces[j].B]) bsum++;
+                    if (pointList[i] == vertices[faces[j].C]) bsum++;
+                    if (bsum > 0)
+                    {
+
+                    }
                 }
             }
-            return uniqueNodes;
+            return new int[] { 1, 1 };
         }
+
+        //private List<Point3d> CreatePointList(List<Line> geometry)
+        //{
+        //    List<Point3d> points = new List<Point3d>();
+
+        //    for (int i = 0; i < geometry.Count; i++) //adds every point unless it already exists in list
+        //    {
+        //        Line l1 = geometry[i];
+        //        if (!points.Contains(l1.From))
+        //        {
+        //            points.Add(l1.From);
+        //        }
+        //        if (!points.Contains(l1.To))
+        //        {
+        //            points.Add(l1.To);
+        //        }
+        //    }
+        //    return points;
+        //}
+
+        //private List<Point3d> GetUniqueNodes(List<Point3d> vertices)
+        //{
+        //    var uniqueNodes = new List<Point3d>();
+        //    for (int i = 0; i < vertices.Count; i++)
+        //    {
+        //        Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 4), Math.Round(vertices[i].Y, 4), Math.Round(vertices[i].Z, 4));
+        //        if (!uniqueNodes.Contains(tempNode))
+        //        {
+        //            uniqueNodes.Add(tempNode);
+        //        }
+        //    }
+        //    return uniqueNodes;
+        //}
 
         protected override System.Drawing.Bitmap Icon
         {
