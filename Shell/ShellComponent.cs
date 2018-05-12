@@ -762,14 +762,15 @@ namespace Shell
                 bdc_value[i * ldofs + 0] = bdcs[bdc_points.IndexOf(point) * ldofs + 0];
                 bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
                 bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
-
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
 
             // Attempt on correct bdc_value setup
+            List<Point3d> pointsfound = new List<Point3d>();
             for (int i = 0; i < bdc_points.Count; i++)
             {
                 Point3d point = bdc_points[i];
+                pointsfound.Add(point);
                 int indx = uniqueNodes.IndexOf(point);
                 int bdcindx = bdc_points.IndexOf(point);
                 bdc_value[indx * ldofs + 0] = bdcs[bdcindx * ldofs + 0];
@@ -777,6 +778,7 @@ namespace Shell
                 bdc_value[indx * ldofs + 2] = bdcs[bdcindx * ldofs + 2];
                 if (bdcs[bdcindx * ldofs + 3] == 0)
                 {
+
                     //find closest bdc point
                     //find the correct face
                     //find the correct according point for rotational dof
