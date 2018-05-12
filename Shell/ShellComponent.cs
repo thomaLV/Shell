@@ -740,8 +740,19 @@ namespace Shell
             //Parse string input
             for (int i = 0; i < bdctxt.Count; i++)
             {
+                //NB! At the moment, the bdc string either looks like
+                //0,0,0:0,0,0
+                //or like
+                //0,0,0:0,0,0:0,..,n where 0,..,n are the indices of mesh faces containing this vertice, and that should be fixed for rotation
                 string coordstr = (bdctxt[i].Split(':')[0]);
                 string bdcstr = (bdctxt[i].Split(':')[1]);
+
+                //more than 1 ':'? => fixed rotation, otherwise free. Information about mesh face index is currently unused
+                int bdcm = 1;
+                if (bdctxt[i].Split(':').Length > 2)
+                {
+                    bdcm = 0;
+                }
 
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] bdcstr1 = (bdcstr.Split(','));
@@ -751,7 +762,8 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
                 bdcs.Add(int.Parse(bdcstr1[2]));
-                bdcs.Add(int.Parse(bdcstr1[3]));
+                //bdcs.Add(int.Parse(bdcstr1[3])); bdcstr1 should never be larger than 3
+                bdcs.Add(bdcm);
             }
 
 
@@ -765,25 +777,25 @@ namespace Shell
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
 
-            // Attempt on correct bdc_value setup
-            List<Point3d> pointsfound = new List<Point3d>();
-            for (int i = 0; i < bdc_points.Count; i++)
-            {
-                Point3d point = bdc_points[i];
-                pointsfound.Add(point);
-                int indx = uniqueNodes.IndexOf(point);
-                int bdcindx = bdc_points.IndexOf(point);
-                bdc_value[indx * ldofs + 0] = bdcs[bdcindx * ldofs + 0];
-                bdc_value[indx * ldofs + 1] = bdcs[bdcindx * ldofs + 1];
-                bdc_value[indx * ldofs + 2] = bdcs[bdcindx * ldofs + 2];
-                if (bdcs[bdcindx * ldofs + 3] == 0)
-                {
+            //// Attempt on correct bdc_value setup
+            //List<Point3d> pointsfound = new List<Point3d>();
+            //for (int i = 0; i < bdc_points.Count; i++)
+            //{
+            //    Point3d point = bdc_points[i];
+            //    pointsfound.Add(point);
+            //    int indx = uniqueNodes.IndexOf(point);
+            //    int bdcindx = bdc_points.IndexOf(point);
+            //    bdc_value[indx * ldofs + 0] = bdcs[bdcindx * ldofs + 0];
+            //    bdc_value[indx * ldofs + 1] = bdcs[bdcindx * ldofs + 1];
+            //    bdc_value[indx * ldofs + 2] = bdcs[bdcindx * ldofs + 2];
+            //    if (bdcs[bdcindx * ldofs + 3] == 0)
+            //    {
 
-                    //find closest bdc point
-                    //find the correct face
-                    //find the correct according point for rotational dof
-                }
-            }
+            //        //find closest bdc point
+            //        //find the correct face
+            //        //find the correct according point for rotational dof
+            //    }
+            //}
 
             return bdc_value;
         }

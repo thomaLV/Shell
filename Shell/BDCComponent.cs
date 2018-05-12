@@ -54,7 +54,7 @@ namespace Shell
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPointParameter("Points", "P", "Points to apply Boundary Conditions", GH_ParamAccess.list);
-            pManager.AddMeshParameter("Meshes", "M", "Same input as for main calc component", GH_ParamAccess.list);
+            pManager.AddMeshParameter("Meshes", "M", "Same input as for main calc component", GH_ParamAccess.item);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -83,8 +83,8 @@ namespace Shell
             {
                 Point3d temp_point = new Point3d();
                 temp_point.X = Math.Round(pointList[i].X, 4);
-                temp_point.X = Math.Round(pointList[i].Y, 4);
-                temp_point.X = Math.Round(pointList[i].Z, 4);
+                temp_point.Y = Math.Round(pointList[i].Y, 4);
+                temp_point.Z = Math.Round(pointList[i].Z, 4);
                 pointList[i] = temp_point;
 
             }
@@ -104,10 +104,8 @@ namespace Shell
                 vertices.Add(temp_vertice);
             }
 
-            var uNodes = GetUniqueNodes(vertices);
-            
             #region Format output
-            string BDCString = x + "," + y + "," + z + "," + rx;
+            string BDCString = x + "," + y + "," + z;
 
 
             if (rx == 1)
@@ -119,37 +117,80 @@ namespace Shell
             }
             else
             {
+                //these mesh faces should have fixed edge
+                List<List<double>> mIndices = GetMeshIndices(pointList, faces, vertices);
                 for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), fixed rotation
                 {
-                    string mIndices = GetMeshIndices(pointList, i, faces, vertices, uNodes);
-                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString + mIndices + rx);
+                    if (mIndices[i].Count > 1)
+                    {
+                        //format mesh index string
+                        string ms = "";
+                        for (int j = 1; j < mIndices[i].Count - 1; j++)
+                        {
+                            ms += mIndices[i][j] + ",";
+                        }
+                        ms += mIndices[i][mIndices[i].Count - 1];
+                        pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString + ":" + 0);
+                    }
+                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
                 }
             }
-
-
             #endregion
 
             DA.SetDataList(0, pointInStringFormat);
         } //End of main program
-
-        private int[] GetMeshIndices(List<Point3d> pointList, List<MeshFace> faces, List<Point3d> vertices, List<Point3d> uNodes)
+        
+        private List<List<double>> GetMeshIndices(List<Point3d> pointList, List<MeshFace> faces, List<Point3d> vertices)
         {
-            int[] indices;
-            int bsum = 0;
+            //initiates list of lists with -1s
+            List<List<double>> indices = new List<List<double>>();
             for (int i = 0; i < pointList.Count; i++)
             {
+                List<double> tempL = new List<double>();
+                tempL.Add(-1);
                 for (int j = 0; j < faces.Count; j++)
                 {
-                    if (pointList[i] == vertices[faces[j].A]) bsum++;
-                    if (pointList[i] == vertices[faces[j].B]) bsum++;
-                    if (pointList[i] == vertices[faces[j].C]) bsum++;
-                    if (bsum > 0)
+                    //is point in mesh?
+                    if (pointList[i] == vertices[faces[j].A])
                     {
-
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
+                        //are any of the other mesh vertices in pointList?
+                        if (pointList.Contains(vertices[faces[j].B]) || pointList.Contains(vertices[faces[j].C]))
+                        {
+                            //indicates that the mesh j contains 2+ vertices and that their edge should be fixed
+                            tempL.Add(j);
+                            //check if other mesh faces share points (otherwise would have used break;)
+                            continue;
+                        }
+                    }
+                    else if (pointList[i] == vertices[faces[j].B])
+                    {
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
+                        if (pointList.Contains(vertices[faces[j].A]) || pointList.Contains(vertices[faces[j].C]))
+                        {
+                            tempL.Add(j);
+                            continue;
+                        }
+                    }
+                    else if (pointList[i] == vertices[faces[j].C])
+                    {
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
+                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
+                        if (pointList.Contains(vertices[faces[j].A]) || pointList.Contains(vertices[faces[j].B]))
+                        {
+                            tempL.Add(j);
+                            continue;
+                        }
                     }
                 }
+                indices.Add(tempL);
             }
-            return new int[] { 1, 1 };
+            return indices;
         }
 
         //private List<Point3d> CreatePointList(List<Line> geometry)
