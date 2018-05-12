@@ -156,18 +156,18 @@ namespace Shell
 
                 //Calculate deformations
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
-                try
-                {
+                //try
+                //{
                     watch.Start();
                     def_reduced = K_red.Cholesky().Solve(load_red);
                     watch.Stop();
                     timer = watch.ElapsedMilliseconds - timer;
                     time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
-                }
-                catch (Exception)
-                {
-                    time += "Cholesky solve: Error " + timer.ToString() + Environment.NewLine;
-                }
+                //}
+                //catch (Exception)
+                //{
+                //    time += "Cholesky solve: Error " + Environment.NewLine;
+                //}
                 
 
                 //Add the clamped dofs (= 0) to the deformations list
@@ -248,31 +248,32 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            int size = Convert.ToInt16(bdc_value.Sum())*4;
-            K_red = Matrix<double>.Build.Dense(size,size,1);
-            List<double> load_redu = new List<double>(size);
-
-            int skipi = 0;
-            for (int i = 0; i < size; i++)
+            int count = K.RowCount;
+            int size = Convert.ToInt16(bdc_value.Sum());
+            K_red = Matrix<double>.Build.Dense(size,size,0);
+            load_red = Vector<double>.Build.Dense(size, 0);
+            int redi = 0;
+            for (int i = 0; i < count; i++)
             {
                 if (bdc_value[i] == 1)
                 {
-                    int skipj = 0;
-                    for (int j = 0; j < size; j++)
+                    int redy = 0;
+                    for (int j = 0; j < count; j++)
                     {
                         if (bdc_value[j] == 1)
                         {
-                            K_red[i - skipi, j - skipj] = K[i, j];
+                            K_red[i - redi, j - redy] = K[i, j];
                         }
                         else
                         {
-                            skipj += 1;
+                            redy += 1;
                         }
                     }
+                    load_red[i - redi] = load[i];
                 }
                 else
                 {
-                    skipi += 1;
+                    redi += 1;
                 }
             }
 
@@ -287,7 +288,7 @@ namespace Shell
             //        j++;
             //    }
             //}
-            load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
+            //load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
         private void GetUniqueNodes(List<Point3d> vertices, out List<Point3d> uniqueNodes)
@@ -754,15 +755,34 @@ namespace Shell
             }
 
 
-            //Format to correct entries in bdc_value
+            //Format to correct entries in bdc_value WRONG IN THIS CASE
             foreach (var point in bdc_points)
             {
                 int i = uniqueNodes.IndexOf(point);
                 bdc_value[i * ldofs + 0] = bdcs[bdc_points.IndexOf(point) * ldofs + 0];
                 bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
                 bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
+
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
+
+            // Attempt on correct bdc_value setup
+            for (int i = 0; i < bdc_points.Count; i++)
+            {
+                Point3d point = bdc_points[i];
+                int indx = uniqueNodes.IndexOf(point);
+                int bdcindx = bdc_points.IndexOf(point);
+                bdc_value[indx * ldofs + 0] = bdcs[bdcindx * ldofs + 0];
+                bdc_value[indx * ldofs + 1] = bdcs[bdcindx * ldofs + 1];
+                bdc_value[indx * ldofs + 2] = bdcs[bdcindx * ldofs + 2];
+                if (bdcs[bdcindx * ldofs + 3] == 0)
+                {
+                    //find closest bdc point
+                    //find the correct face
+                    //find the correct according point for rotational dof
+                }
+            }
+
             return bdc_value;
         }
 
