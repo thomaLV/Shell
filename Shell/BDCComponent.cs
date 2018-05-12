@@ -54,6 +54,7 @@ namespace Shell
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPointParameter("Points", "P", "Points to apply Boundary Conditions", GH_ParamAccess.list);
+            pManager.AddMeshParameter("Meshes", "M", "Same input as for main calc component", GH_ParamAccess.list);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -67,40 +68,76 @@ namespace Shell
             //Expected inputs
             List<Point3d> pointList = new List<Point3d>();          //List of points where BDC is to be applied
             List<string> pointInStringFormat = new List<string>();  //output in form of list of strings
+            
+            //Expected inputs
+            Mesh mesh = new Mesh();                         //mesh in Mesh format
+            List<MeshFace> faces = new List<MeshFace>();    //faces of mesh as a list
+            List<Point3d> vertices = new List<Point3d>();   //vertices of mesh as a list
 
             //Set expected inputs from Indata and aborts with error message if input is incorrect
             if (!DA.GetDataList(0, pointList)) return;
+            if (!DA.GetData(1, ref mesh)) return;           //sets inputted mesh into variable
             #endregion
+
+            foreach (var face in mesh.Faces)
+            {
+                faces.Add(face);
+            }
+
+            foreach (var vertice in mesh.Vertices)
+            {
+                Point3d temp_vertice = new Point3d();
+                temp_vertice.X = Math.Round(vertice.X, 4);
+                temp_vertice.Y = Math.Round(vertice.Y, 4);
+                temp_vertice.Z = Math.Round(vertice.Z, 4);
+                vertices.Add(temp_vertice);
+            }
+
+            var uNodes = GetUniqueNodes(vertices);
             
             #region Format output
             string BDCString = x + "," + y + "," + z + "," + rx;
 
-            for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points)
+
+            if (rx == 1)
             {
-                pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
+                for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), no fixed rotations
+                {
+                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
+                }
             }
+            else
+            {
+                for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), fixed rotation
+                {
+                    string mIndices = GetMeshIndices(pointList, i, faces, vertices, uNodes);
+                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString + mIndices + rx);
+                }
+            }
+
+
             #endregion
 
             DA.SetDataList(0, pointInStringFormat);
         } //End of main program
 
-        private List<Point3d> CreatePointList(List<Line> geometry)
+        private string GetMeshIndices(List<Point3d> pointList, int ind, List<MeshFace> faces, List<Point3d> vertices, List<Point3d> uNodes)
         {
-            List<Point3d> points = new List<Point3d>();
+            throw new NotImplementedException();
+        }
 
-            for (int i = 0; i < geometry.Count; i++) //adds every point unless it already exists in list
+        private List<Point3d> GetUniqueNodes(List<Point3d> vertices)
+        {
+            var uniqueNodes = new List<Point3d>();
+            for (int i = 0; i < vertices.Count; i++)
             {
-                Line l1 = geometry[i];
-                if (!points.Contains(l1.From))
+                Point3d tempNode = new Point3d(Math.Round(vertices[i].X, 4), Math.Round(vertices[i].Y, 4), Math.Round(vertices[i].Z, 4));
+                if (!uniqueNodes.Contains(tempNode))
                 {
-                    points.Add(l1.From);
-                }
-                if (!points.Contains(l1.To))
-                {
-                    points.Add(l1.To);
+                    uniqueNodes.Add(tempNode);
                 }
             }
-            return points;
+            return uniqueNodes;
         }
 
         protected override System.Drawing.Bitmap Icon
