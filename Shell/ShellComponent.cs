@@ -108,8 +108,8 @@ namespace Shell
 
             Vector<double> def_tot;
             Vector<double> reactions;
-            //List<double> internalStresses;
-            //List<double> internalStrains;
+            Vector<double> internalStresses;
+            Vector<double> internalStrains;
 
             #region Prepares boundary conditions and loads for calculation
 
@@ -177,7 +177,12 @@ namespace Shell
                 reactions = K_tot.Multiply(def_tot);
 
                 //Calculate the internal strains and stresses in each member
-                //CalculateInternalStrainsAndStresses(def_tot, points, E, geometry, out internalStresses, out internalStrains);
+                // m = -h^3/12 * C * Bk * v
+                // 
+                // strain = B * v
+                // stress = C * strain
+
+                CalculateInternalStrainsAndStresses(def_tot, vertices, E, out internalStresses, out internalStrains);
                 #endregion
             }
             else
@@ -185,18 +190,17 @@ namespace Shell
                 def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
                 //reactions = def_tot;
 
-                //internalStresses = new List<double>(geometry.Count);
-                //internalStresses.AddRange(new double[geometry.Count]);
-                //internalStrains = internalStresses;
+                internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                internalStrains = internalStresses;
             }
 
             DA.SetDataList(0, def_tot);
             DA.SetData(1, time.ToString());
-            //DA.SetDataList(2, internalStresses);
-            //DA.SetDataList(3, internalStrains);
+            DA.SetDataList(2, internalStresses);
+            DA.SetDataList(3, internalStrains);
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> points, double E, List<Line> geometry, out List<double> internalStresses, out List<double> internalStrains)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
         {
             //preallocating lists
             internalStresses = new List<double>(geometry.Count);
