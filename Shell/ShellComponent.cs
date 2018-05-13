@@ -248,35 +248,38 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            int count = K.RowCount;
-            int size = Convert.ToInt16(bdc_value.Sum());
-            K_red = Matrix<double>.Build.Dense(size,size,0);
-            load_red = Vector<double>.Build.Dense(size, 0);
-            int redi = 0;
-            for (int i = 0; i < count; i++)
+            int oldRC = load.Count;
+            int newRC = Convert.ToInt16(bdc_value.Sum());
+            K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
+            load_red = Vector<double>.Build.Dense(newRC, 0);
+            for (int i = 0, ii = 0; i < oldRC; i++)
             {
+                //is bdc_value in row i free?
                 if (bdc_value[i] == 1)
                 {
-                    int redy = 0;
-                    for (int j = 0; j < count; j++)
+                    for (int j = 0, jj = 0; j < oldRC; j++)
                     {
+                        //is bdc_value in col j free?
                         if (bdc_value[j] == 1)
                         {
-                            K_red[i - redi, j - redy] = K[i, j];
+                            //if yes, then add to new K
+                            K_red[i - ii, j - jj] = K[i, j];
                         }
                         else
                         {
-                            redy += 1;
+                            //if not, remember to skip 1 column when adding next time
+                            jj++;
                         }
                     }
-                    load_red[i - redi] = load[i];
+                    //add to reduced load list
+                    load_red[i - ii] = load[i];
                 }
                 else
                 {
-                    redi += 1;
+                    //if not, remember to skip 1 row when adding next time
+                    ii++;
                 }
             }
-
             //for (int i = 0, j=0; i < size; i++)
             //{
             //    //remove clamped dofs
