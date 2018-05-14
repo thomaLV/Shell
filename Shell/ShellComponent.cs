@@ -182,7 +182,7 @@ namespace Shell
                 // strain = B * v
                 // stress = C * strain
 
-                CalculateInternalStrainsAndStresses(def_tot, vertices, E, out internalStresses, out internalStrains);
+                //CalculateInternalStrainsAndStresses(def_tot, vertices, E, out internalStresses, out internalStrains);
                 #endregion
             }
             else
@@ -196,45 +196,45 @@ namespace Shell
 
             DA.SetDataList(0, def_tot);
             DA.SetData(1, time.ToString());
-            DA.SetDataList(2, internalStresses);
-            DA.SetDataList(3, internalStrains);
+            //DA.SetDataList(2, internalStresses);
+            //DA.SetDataList(3, internalStrains);
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
-        {
-            //preallocating lists
-            internalStresses = new List<double>(geometry.Count);
-            internalStrains = new List<double>(geometry.Count);
+        //private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        //{
+        //    //preallocating lists
+        //    internalStresses = new List<double>(geometry.Count);
+        //    internalStrains = new List<double>(geometry.Count);
 
-            foreach (Line line in geometry)
-            {
-                int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 5), Math.Round(line.From.Y, 5), Math.Round(line.From.Z, 5)));
-                int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 5), Math.Round(line.To.Y, 5), Math.Round(line.To.Z, 5)));
+        //    foreach (Line line in geometry)
+        //    {
+        //        int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 5), Math.Round(line.From.Y, 5), Math.Round(line.From.Z, 5)));
+        //        int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 5), Math.Round(line.To.Y, 5), Math.Round(line.To.Z, 5)));
 
-                //fetching deformation of point
-                double x1 = def[index1 * 3 + 0];
-                double y1 = def[index1 * 3 + 1];
-                double z1 = def[index1 * 3 + 2];
-                double x2 = def[index2 * 3 + 0];
-                double y2 = def[index2 * 3 + 1];
-                double z2 = def[index2 * 3 + 2];
+        //        //fetching deformation of point
+        //        double x1 = def[index1 * 3 + 0];
+        //        double y1 = def[index1 * 3 + 1];
+        //        double z1 = def[index1 * 3 + 2];
+        //        double x2 = def[index2 * 3 + 0];
+        //        double y2 = def[index2 * 3 + 1];
+        //        double z2 = def[index2 * 3 + 2];
 
-                //new node coordinates for deformed nodes
-                double nx1 = points[index1].X + x1;
-                double ny1 = points[index1].X + y1;
-                double nz1 = points[index1].Z + z1;
-                double nx2 = points[index2].X + x2;
-                double ny2 = points[index2].X + y2;
-                double nz2 = points[index2].Z + z2;
+        //        //new node coordinates for deformed nodes
+        //        double nx1 = points[index1].X + x1;
+        //        double ny1 = points[index1].X + y1;
+        //        double nz1 = points[index1].Z + z1;
+        //        double nx2 = points[index2].X + x2;
+        //        double ny2 = points[index2].X + y2;
+        //        double nz2 = points[index2].Z + z2;
 
-                //calculating dL = length of deformed line - original length of line
-                double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
+        //        //calculating dL = length of deformed line - original length of line
+        //        double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
 
-                //calculating strain and stress
-                internalStrains.Add(dL / line.Length);
-                internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
-            }
-        }
+        //        //calculating strain and stress
+        //        internalStrains.Add(dL / line.Length);
+        //        internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
+        //    }
+        //}
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
         {
