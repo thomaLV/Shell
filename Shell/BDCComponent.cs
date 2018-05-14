@@ -130,9 +130,12 @@ namespace Shell
                             ms += mIndices[i][j] + ",";
                         }
                         ms += mIndices[i][mIndices[i].Count - 1];
-                        pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString + ":" + 0);
+                        pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString + ":" + ms);
                     }
-                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
+                    else
+                    {
+                        pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
+                    }
                 }
             }
             #endregion
@@ -153,9 +156,6 @@ namespace Shell
                     //is point in mesh?
                     if (pointList[i] == vertices[faces[j].A])
                     {
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
                         //are any of the other mesh vertices in pointList?
                         if (pointList.Contains(vertices[faces[j].B]) || pointList.Contains(vertices[faces[j].C]))
                         {
@@ -167,9 +167,6 @@ namespace Shell
                     }
                     else if (pointList[i] == vertices[faces[j].B])
                     {
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
                         if (pointList.Contains(vertices[faces[j].A]) || pointList.Contains(vertices[faces[j].C]))
                         {
                             tempL.Add(j);
@@ -178,9 +175,6 @@ namespace Shell
                     }
                     else if (pointList[i] == vertices[faces[j].C])
                     {
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].A]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].B]);
-                        System.Diagnostics.Debug.WriteLine(vertices[faces[j].C]);
                         if (pointList.Contains(vertices[faces[j].A]) || pointList.Contains(vertices[faces[j].B]))
                         {
                             tempL.Add(j);
