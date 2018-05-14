@@ -50,8 +50,8 @@ namespace Shell
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
             pManager.AddTextParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
-            pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
+            pManager.AddTextParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            pManager.AddTextParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -148,7 +148,6 @@ namespace Shell
             
             #endregion
 
-
             if (startCalc)
             {
 
@@ -158,6 +157,7 @@ namespace Shell
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
                 //try
                 //{
+                bool test = K_red.IsSymmetric();
                     watch.Start();
                     def_reduced = K_red.Cholesky().Solve(load_red);
                     watch.Stop();
@@ -190,14 +190,14 @@ namespace Shell
                 def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
                 //reactions = def_tot;
 
-                internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
-                internalStrains = internalStresses;
+                //internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                //internalStrains = internalStresses;
             }
 
             DA.SetDataList(0, def_tot);
             DA.SetData(1, time.ToString());
-            //DA.SetDataList(2, internalStresses);
-            //DA.SetDataList(3, internalStrains);
+            DA.SetData(2, K_red.ToString());
+            DA.SetData(3, K_tot.ToString());
         }
 
         //private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
@@ -267,7 +267,7 @@ namespace Shell
                         if (bdc_value[j] == 1)
                         {
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = K[i, j];
+                            K_red[i - ii, j - jj] = Math.Round(K[i, j],4);
                         }
                         else
                         {
@@ -841,31 +841,7 @@ namespace Shell
                         }
                     }
                 }
-
-
-
-                bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
-
-            //// Attempt on correct bdc_value setup
-            //List<Point3d> pointsfound = new List<Point3d>();
-            //for (int i = 0; i < bdc_points.Count; i++)
-            //{
-            //    Point3d point = bdc_points[i];
-            //    pointsfound.Add(point);
-            //    int indx = uniqueNodes.IndexOf(point);
-            //    int bdcindx = bdc_points.IndexOf(point);
-            //    bdc_value[indx * ldofs + 0] = bdcs[bdcindx * ldofs + 0];
-            //    bdc_value[indx * ldofs + 1] = bdcs[bdcindx * ldofs + 1];
-            //    bdc_value[indx * ldofs + 2] = bdcs[bdcindx * ldofs + 2];
-            //    if (bdcs[bdcindx * ldofs + 3] == 0)
-            //    {
-
-            //        //find closest bdc point
-            //        //find the correct face
-            //        //find the correct according point for rotational dof
-            //    }
-            //}
 
             return bdc_value;
         }
