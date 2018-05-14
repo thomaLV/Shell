@@ -58,8 +58,6 @@ namespace Shell
         {
             #region Fetch inputs and assign to variables
 
-            int ldofs = 4;
-
             //Expected inputs
             Mesh mesh = new Mesh();                         //mesh in Mesh format
             List<MeshFace> faces = new List<MeshFace>();    //faces of mesh as a list
@@ -89,9 +87,39 @@ namespace Shell
                 vertices.Add(temp_vertice);
             }
 
+            // Number of edges from Euler's formula
+            int NoOfEdges = vertices.Count + faces.Count - 1;
+            List<Line> edges = new List<Line>(NoOfEdges);
+            int[,] vertexInEdge = new int[NoOfEdges, 2]; // Nødvendig?? usikkert
+            foreach (var face in faces)
+            {
+                Point3d vA = vertices[face.A];
+                Point3d vB = vertices[face.B];
+                Point3d vC = vertices[face.C];
+                Line lineAB = new Line(vA, vB);
+                Line lineBA = new Line(vB, vA);
+                Line lineCB = new Line(vC, vB);
+                Line lineBC = new Line(vB, vC);
+                Line lineAC = new Line(vA, vC);
+                Line lineCA = new Line(vC, vA);
+
+                if (!edges.Contains(lineAB) && !edges.Contains(lineBA))
+                {
+                    edges.Add(lineAB);
+                }
+                if (!edges.Contains(lineCB) && !edges.Contains(lineBC))
+                {
+                    edges.Add(lineBC);
+                }
+                if (!edges.Contains(lineAC) && !edges.Contains(lineCA))
+                {
+                    edges.Add(lineAC);
+                }
+            }
+
             List<Point3d> uniqueNodes;
             GetUniqueNodes(vertices, out uniqueNodes);
-            int gdofs = uniqueNodes.Count * ldofs;
+            int gdofs = uniqueNodes.Count * 3 + edges.Count;
 
             #endregion
 
@@ -114,10 +142,10 @@ namespace Shell
             #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
-            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, ldofs);
+            Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, edges);
             
             //Interpreting input load (text) and creating load list (double)
-            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, ldofs);
+            List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, edges);
             #endregion
 
             Matrix<double> K_red;
@@ -133,7 +161,7 @@ namespace Shell
             //Create global stiffness matrix
 
             watch.Start();
-            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, ldofs, uniqueNodes, E, A, Iy, Iz, J, G, nu, t);
+            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, E, A, Iy, Iz, J, G, nu, t);
             watch.Stop();
             timer = watch.ElapsedMilliseconds - timer;
             time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
@@ -311,20 +339,32 @@ namespace Shell
             }
         }
 
-        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, int ldofs, List<Point3d> uniqueNodes, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
+        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Line> edges, List<Point3d> uniqueNodes, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
         {
-            int gdofs = uniqueNodes.Count * 4;
+            int gdofs = uniqueNodes.Count * 3 + edges.Count;
+
+            // take into account that there are more sides than veritces
+
             var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
             foreach (var face in faces)
             {
-                int indexA = face.A;
-                int indexB = face.B; 
-                int indexC = face.C;
+                int indexA = uniqueNodes.IndexOf(vertices[face.A]);
+                int indexB = uniqueNodes.IndexOf(vertices[face.B]); 
+                int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
                 Point3d verticeA = vertices[indexA];
                 Point3d verticeB = vertices[indexB];
                 Point3d verticeC = vertices[indexC];
+
+                int edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeB));
+                if (edgeIndex1 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeB, verticeA)); }
+                int edgeIndex2 = edges.IndexOf(new Line(verticeB, verticeC));
+                if (edgeIndex2 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeC, verticeB)); }
+                int edgeIndex3 = edges.IndexOf(new Line(verticeC, verticeA));
+                if (edgeIndex3 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeC)); }
+
+                int[] eindx = new int[] { edgeIndex1, edgeIndex2, edgeIndex3 };
 
                 double x1 = verticeA.X;
                 double x2 = verticeB.X;
@@ -344,34 +384,67 @@ namespace Shell
 
                 Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, E, nu, t);
 
-                //Inputting values to correct entries in Global Stiffness Matrix
-                for (int row = 0; row < ldofs; row++)
+                int nodeDofs = uniqueNodes.Count * 3;
+                for (int row = 0; row < 3; row++)
                 {
-                    for (int col = 0; col < ldofs; col++)
+                    for (int col = 0; col < 3; col++)
                     {
-                        //top left 4x4 of K-element matrix
-                        KG[indexA * ldofs + row, indexA * ldofs + col] += Ke[row, col];
-                        //top middle 4x4 of k-element matrix
-                        KG[indexA * ldofs + row, indexB * ldofs + col] += Ke[row, col + ldofs];
-                        //top right 4x4 of k-element matrix  
-                        KG[indexA * ldofs + row, indexC * ldofs + col] += Ke[row, col + ldofs * 2];
+                        //top left 3x3 of K-element matrix
+                        KG[indexA * 3 + row, indexA * 3 + col] += Ke[row, col];
+                        //top middle 3x3 of k-element matrix
+                        KG[indexA * 3 + row, indexB * 3 + col] += Ke[row, col + 4];
+                        //top right 3x3 of k-element matrix 
+                        KG[indexA * 3 + row, indexC * 3 + col] += Ke[row, col + 4 * 2];
 
-                        //middle left 4x4 of k-element matrix
-                        KG[indexB * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs, col];
-                        //middle middle 4x4 of k-element matrix
-                        KG[indexB * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs, col + ldofs];
-                        //middle right 4x4 of k-element matrix
-                        KG[indexB * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs, col + ldofs * 2];
+                        //middle left 3x3 of k-element matrix
+                        KG[indexB * 3 + row, indexA * 3 + col] += Ke[row + 4, col];
+                        //middle middle 3x3 of k-element matrix
+                        KG[indexB * 3 + row, indexB * 3 + col] += Ke[row + 4, col + 4];
+                        //middle right 3x3 of k-element matrix
+                        KG[indexB * 3 + row, indexC * 3 + col] += Ke[row + 4, col + 4 * 2];
 
-                        //bottom left 4x4 of k-element matrix
-                        KG[indexC * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs * 2, col];
-                        //bottom middle 4x4 of k-element matrix
-                        KG[indexC * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs * 2, col + ldofs];
-                        //bottom right 4x4 of k-element matrix
-                        KG[indexC * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs * 2, col + ldofs * 2];
+                        //bottom left 3x3 of k-element matrix
+                        KG[indexC * 3 + row, indexA * 3 + col] += Ke[row + 4 * 2, col];
+                        //bottom middle 3x3 of k-element matrix
+                        KG[indexC * 3 + row, indexB * 3 + col] += Ke[row + 4 * 2, col + 4];
+                        //bottom right 3x3 of k-element matrix
+                        KG[indexC * 3 + row, indexC * 3 + col] += Ke[row + 4 * 2, col + 4 * 2];
+
+                        // insert rotations for edges in correct place
+                        KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] = Ke[row + 9, col + 9];
                     }
                 }
-            }
+
+                    //int ldofs = 4;
+
+                    //Inputting values to correct entries in Global Stiffness Matrix
+                    //for (int row = 0; row < ldofs; row++)
+                    //{
+                    //    for (int col = 0; col < ldofs; col++)
+                    //    {
+                    //        //top left 4x4 of K-element matrix
+                    //        KG[indexA * ldofs + row, indexA * ldofs + col] += Ke[row, col];
+                    //        //top middle 4x4 of k-element matrix
+                    //        KG[indexA * ldofs + row, indexB * ldofs + col] += Ke[row, col + ldofs];
+                    //        //top right 4x4 of k-element matrix  
+                    //        KG[indexA * ldofs + row, indexC * ldofs + col] += Ke[row, col + ldofs * 2];
+
+                    //        //middle left 4x4 of k-element matrix
+                    //        KG[indexB * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs, col];
+                    //        //middle middle 4x4 of k-element matrix
+                    //        KG[indexB * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs, col + ldofs];
+                    //        //middle right 4x4 of k-element matrix
+                    //        KG[indexB * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs, col + ldofs * 2];
+
+                    //        //bottom left 4x4 of k-element matrix
+                    //        KG[indexC * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs * 2, col];
+                    //        //bottom middle 4x4 of k-element matrix
+                    //        KG[indexC * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs * 2, col + ldofs];
+                    //        //bottom right 4x4 of k-element matrix
+                    //        KG[indexC * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs * 2, col + ldofs * 2];
+                    //    }
+                    //}
+                }
             return KG;
         }
 
@@ -664,10 +737,10 @@ namespace Shell
             return M_new;
         }
 
-        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
+        private List<double> CreateLoadList(List<string> loadtxt, List<string> momenttxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, List<Line> edges)
         {
             //initializing loads with list of doubles of size gdofs and entry values = 0
-            List<double> loads = new List<double>(new double[uniqueNodes.Count * ldofs]);
+            List<double> loads = new List<double>(new double[uniqueNodes.Count * 3 + edges.Count]);
             List<double> inputLoads = new List<double>();
             List<Point3d> coordlist = new List<Point3d>();
 
@@ -731,10 +804,10 @@ namespace Shell
             return loads;
         }
 
-        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, int ldofs)
+        private Vector<double> CreateBDCList(List<string> bdctxt, List<Point3d> uniqueNodes, List<MeshFace> faces, List<Point3d> vertices, List<Line> edges)
         {
             //initializing bdc_value as vector of size gdofs, and entry values = 1
-            Vector<double> bdc_value = Vector.Build.Dense(uniqueNodes.Count * ldofs,1);
+            Vector<double> bdc_value = Vector.Build.Dense(uniqueNodes.Count * 3 + edges.Count ,1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
             int initnumber = faces.Count;
