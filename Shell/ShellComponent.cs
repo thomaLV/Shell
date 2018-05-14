@@ -318,12 +318,8 @@ namespace Shell
 
             foreach (var face in faces)
             {
-                //int indexA = uniqueNodes.IndexOf(vertices[face.A]);
-                //int indexB = uniqueNodes.IndexOf(vertices[face.B]);  //må ikke alle elementer gås igjennom? faces relateres til vertices, ikke uniquenodes
-                //int indexC = uniqueNodes.IndexOf(vertices[face.C]);
-
                 int indexA = face.A;
-                int indexB = face.B;  //må ikke alle elementer gås igjennom? faces relateres til vertices, ikke uniquenodes
+                int indexB = face.B; 
                 int indexC = face.C;
 
                 Point3d verticeA = vertices[indexA];
@@ -342,9 +338,9 @@ namespace Shell
                 double z2 = verticeB.Z;
                 double z3 = verticeC.Z;
 
-                double[] xList = new double[4] { x1, x2, x3, x1 };
-                double[] yList = new double[4] { y1, y2, y3, y1 };
-                double[] zList = new double[4] { z1, z2, z3, z1 };
+                double[] xList = new double[3] { x1, x2, x3 };
+                double[] yList = new double[3] { y1, y2, y3 };
+                double[] zList = new double[3] { z1, z2, z3 };
 
                 Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, E, nu, t);
 
@@ -375,9 +371,6 @@ namespace Shell
                         KG[indexC * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs * 2, col + ldofs * 2];
                     }
                 }
-                //NB! Consider calculating stresses and strains via this function to optimise calculation time!
-                // el strain = Bq, el stress = DBq 
-                //would be fastest to call calcstress & strain-method from this method since B is not saved outside this method!
             }
             return KG;
         }
@@ -456,7 +449,7 @@ namespace Shell
             y3 = lcoord[1, 2];
             z1 = lcoord[2, 0];
             z2 = lcoord[2, 1];
-            z3 = lcoord[2, 2]; // Note that z1 = z2 = z3, if all goes after the grand plan
+            z3 = lcoord[2, 2]; // Note that z1 = z2 = z3, if all goes according to plan
 
             #endregion
 
@@ -472,7 +465,7 @@ namespace Shell
 
             double C_add = E / (1 - Math.Pow(nu, 2)); // additional part to add to every indice in C matrix
 
-            #region Morley Bending Triangle -- Bending part of element
+            #region Morley Bending Triangle -- Bending part of element gives [z1 z2 z3 phi1 phi2 phi3]
 
             Matrix<double> lcoord_temp = Matrix<double>.Build.DenseOfArray(new double[,] { { x1 }, { y1 }, { z1 } });
             lcoord = lcoord.Append(lcoord_temp);
@@ -552,7 +545,7 @@ namespace Shell
 #endregion
 
 
-            #region Constant Strain/Stress Triangle (CST) -- Membrane part of element
+            #region Constant Strain/Stress Triangle (CST) -- Membrane part of element gives [x1 y1 x2 y2 x3 y3]
 
             Matrix<double> Bk_m = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
 
@@ -578,7 +571,8 @@ namespace Shell
             #endregion
 
             // input membrane and bending part into full element stiffness matrix
-            // and stacking them according to [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3] 
+            // and stacking them from [x1 y1 x2 y2 x3 y3 z1 z2 z3 phi1 phi2 phi3]
+            // into [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3] which gives the stacking order: { 0 1 6 9 2 3 7 10 4 5 8 11 }
             Matrix<double> ke = ke_m.DiagonalStack(ke_b);
             ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 });
 
@@ -743,6 +737,10 @@ namespace Shell
             Vector<double> bdc_value = Vector.Build.Dense(uniqueNodes.Count * ldofs,1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
+            int initnumber = faces.Count;
+            int rows = bdctxt.Count;
+            Matrix<double> bdcrotface = Matrix<double>.Build.Dense(rows, 2, initnumber);
+            //Matrix<int> bdcrotface = Matrix<int>.Build.Dense(rows,2);
 
             //Parse string input
             for (int i = 0; i < bdctxt.Count; i++)
@@ -751,14 +749,21 @@ namespace Shell
                 //0,0,0:0,0,0
                 //or like
                 //0,0,0:0,0,0:0,..,n where 0,..,n are the indices of mesh faces containing this vertice, and that should be fixed for rotation
-                string coordstr = (bdctxt[i].Split(':')[0]);
-                string bdcstr = (bdctxt[i].Split(':')[1]);
+                int bdcrot = 1;
 
-                //more than 1 ':'? => fixed rotation, otherwise free. Information about mesh face index is currently unused
-                int bdcm = 1;
-                if (bdctxt[i].Split(':').Length > 2)
+                string[] bdcinfo = bdctxt[i].Split(':');
+                string coordstr = bdcinfo[0];
+                string bdcstr = bdcinfo[1];
+                if (bdcinfo.GetLength(0) == 3)
                 {
-                    bdcm = 0;
+                    string bdcrotfacetxt = bdcinfo[2];
+                    bdcrot = 0;
+                    string[] bdcrotfacetemp = bdcrotfacetxt.Split(',');
+                    bdcrotface[i,0] = int.Parse(bdcrotfacetemp[0]);
+                    if (bdcrotfacetemp.GetLength(0) == 2)
+                    {
+                        bdcrotface[i, 1] = int.Parse(bdcrotfacetemp[1]);
+                    }
                 }
 
                 string[] coordstr1 = (coordstr.Split(','));
@@ -769,18 +774,76 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
                 bdcs.Add(int.Parse(bdcstr1[2]));
-                //bdcs.Add(int.Parse(bdcstr1[3])); bdcstr1 should never be larger than 3
-                bdcs.Add(bdcm);
+                bdcs.Add(bdcrot);
             }
 
+            //Format to correct entries in bdc_value
 
-            //Format to correct entries in bdc_value WRONG IN THIS CASE
+
             foreach (var point in bdc_points)
             {
                 int i = uniqueNodes.IndexOf(point);
                 bdc_value[i * ldofs + 0] = bdcs[bdc_points.IndexOf(point) * ldofs + 0];
                 bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
                 bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
+
+                if (bdcs[bdc_points.IndexOf(point) * ldofs + 3] == 0)
+                {
+                    int faceindex;
+                    Point3d point2 = new Point3d();
+                    int index = bdc_points.IndexOf(point);
+                    if (bdcrotface[bdc_points.IndexOf(point),1] == initnumber)
+                    {
+                        faceindex = Convert.ToInt16(bdcrotface[index, 0]);
+                    }
+                    else
+                    {
+                        faceindex = Convert.ToInt16(bdcrotface[index, 1]);
+                    }
+                    foreach (var p in bdc_points)
+                    {
+                        if (p != point && (faceindex == bdcrotface[bdc_points.IndexOf(p), 0] || faceindex == bdcrotface[bdc_points.IndexOf(p), 1]))
+                        {
+                            point2 = p;
+                            break;
+                        }
+                    }
+                    MeshFace face = faces[faceindex];
+                    int A = face.A;
+                    int B = face.B;
+                    int C = face.C;
+
+                    if (vertices[A] == point)
+                    {
+                        if (vertices[C] == point2)
+                        {
+                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
+                            int newindex = bdc_points.IndexOf(point2);
+                            bdc_value[newindex * ldofs + 3] = 0;
+                        }
+                    }
+                    else if (vertices[B] == point)
+                    {
+                        if (vertices[A] == point2)
+                        {
+                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
+                            int newindex = bdc_points.IndexOf(point2);
+                            bdc_value[newindex * ldofs + 3] = 0;
+                        }
+                    }
+                    else if (vertices[C] == point)
+                    {
+                        if (vertices[B] == point2)
+                        {
+                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
+                            int newindex = bdc_points.IndexOf(point2);
+                            bdc_value[newindex * ldofs + 3] = 0;
+                        }
+                    }
+                }
+
+
+
                 bdc_value[i * ldofs + 3] = bdcs[bdc_points.IndexOf(point) * ldofs + 3];
             }
 
