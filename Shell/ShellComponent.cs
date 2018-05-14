@@ -203,8 +203,8 @@ namespace Shell
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
         {
             //preallocating lists
-            internalStresses = new List<double>(geometry.Count);
-            internalStrains = new List<double>(geometry.Count);
+            //internalStresses = new List<double>(geometry.Count);
+            //internalStrains = new List<double>(geometry.Count);
 
             foreach (Line line in geometry)
             {
