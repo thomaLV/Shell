@@ -873,7 +873,7 @@ namespace Shell
 
             //Parse string input
             int numOfPoints = 0;
-            if (!bdctxt[rows-1].Contains(":"))
+            if ((bdctxt[rows-1] != null) && !bdctxt[rows-1].Contains(":"))
             {
                 numOfPoints = rows - 1;
                 string[] edgestrtemp = bdctxt[rows - 1].Split(',');
@@ -886,7 +886,7 @@ namespace Shell
             }
             else
             {
-                numOfPoints = bdctxt.Count;
+                numOfPoints = bdctxt.Count-1;
             }
             for (int i = 0; i < numOfPoints; i++)
             {

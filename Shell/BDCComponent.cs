@@ -158,6 +158,10 @@ namespace Shell
                     {
                         facenum = mIndices[i][1];
                     }
+                    else
+                    {
+                        break;
+                    }
                     List<Point3d> connectedPoints = new List<Point3d>();
                     for (int j = 0; j < pointList.Count; j++)
                     {
