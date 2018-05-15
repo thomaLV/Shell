@@ -52,6 +52,8 @@ namespace Shell
             pManager.AddTextParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
             pManager.AddTextParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddTextParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
+            pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
+            pManager.AddNumberParameter("naked edge index", "", "", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -90,7 +92,7 @@ namespace Shell
             // Number of edges from Euler's formula
             int NoOfEdges = vertices.Count + faces.Count - 1;
             List<Line> edges = new List<Line>(NoOfEdges);
-            int[,] vertexInEdge = new int[NoOfEdges, 2]; // Nødvendig?? usikkert
+            Vector<double> nakedEdge = Vector<double>.Build.Dense(NoOfEdges,1);
             foreach (var face in faces)
             {
                 Point3d vA = vertices[face.A];
@@ -107,13 +109,40 @@ namespace Shell
                 {
                     edges.Add(lineAB);
                 }
+                else
+                {
+                    int i = edges.IndexOf(lineAB);
+                    if (i == -1)
+                    {
+                        i = edges.IndexOf(lineBA);
+                    }
+                    nakedEdge[i] = 0;
+                }
                 if (!edges.Contains(lineCB) && !edges.Contains(lineBC))
                 {
                     edges.Add(lineBC);
                 }
+                else
+                {
+                    int i = edges.IndexOf(lineBC);
+                    if (i == -1)
+                    {
+                        i = edges.IndexOf(lineCB);
+                    }
+                    nakedEdge[i] = 0;
+                }
                 if (!edges.Contains(lineAC) && !edges.Contains(lineCA))
                 {
                     edges.Add(lineAC);
+                }
+                else
+                {
+                    int i = edges.IndexOf(lineAC);
+                    if (i == -1)
+                    {
+                        i = edges.IndexOf(lineCA);
+                    }
+                    nakedEdge[i] = 0;
                 }
             }
 
@@ -143,7 +172,17 @@ namespace Shell
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
             Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, edges);
-            
+
+            Vector<double> nakededge = Vector<double>.Build.Dense(gdofs, 0);
+            for (int i = uniqueNodes.Count*3; i < gdofs; i++)
+            {
+                if (bdc_value[i] == 1)
+                {
+                    nakededge[i] = (nakedEdge[i - uniqueNodes.Count * 3]);
+                }
+            }
+            List<double> test1 = new List<double>(nakededge.ToArray());
+
             //Interpreting input load (text) and creating load list (double)
             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, edges);
             #endregion
@@ -169,7 +208,7 @@ namespace Shell
             //Create reduced K-matrix and reduced load list (removed clamped dofs)
 
             watch.Start();
-            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, out K_red, out load_red);
+            CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, uniqueNodes, nakededge, out K_red, out load_red);
             watch.Stop();
             timer = watch.ElapsedMilliseconds - timer;
             time += "Reduce global stiffness matrix: " + timer.ToString() + Environment.NewLine;
@@ -181,25 +220,18 @@ namespace Shell
 
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
+                bool test = K_red.IsSymmetric();
                 //Calculate deformations
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
-                //try
-                //{
-                bool test = K_red.IsSymmetric();
                     watch.Start();
-                    def_reduced = K_red.Cholesky().Solve(load_red);
+                    //def_reduced = K_red.Cholesky().Solve(load_red);
+                def_reduced = K_red.Solve(load_red);
                     watch.Stop();
                     timer = watch.ElapsedMilliseconds - timer;
                     time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
-                //}
-                //catch (Exception)
-                //{
-                //    time += "Cholesky solve: Error " + Environment.NewLine;
-                //}
-                
 
                 //Add the clamped dofs (= 0) to the deformations list
-                def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value);
+                def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value, nakededge);
 
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
@@ -222,10 +254,13 @@ namespace Shell
                 //internalStrains = internalStresses;
             }
 
+
             DA.SetDataList(0, def_tot);
             DA.SetData(1, time.ToString());
-            DA.SetData(2, K_red.ToString());
-            DA.SetData(3, K_tot.ToString());
+            DA.SetData(2, K_red.ToString(32,32));
+            DA.SetData(3, K_tot.ToString(43,43));
+            DA.SetDataList(4, edges);           
+            DA.SetDataList(5, test1);
         }
 
         //private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
@@ -264,12 +299,12 @@ namespace Shell
         //    }
         //}
 
-        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value)
+        private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value, Vector<double> nakededges)
         {
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
             {
-                if (bdc_value[i] == 1)
+                if (bdc_value[i] == 1 && nakededges[i] == 0)
                 {
                     def[i] = deformations_red[j];
                     j++;
@@ -278,37 +313,47 @@ namespace Shell
             return def;
         }
 
-        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, out Matrix<double> K_red, out Vector<double> load_red)
+        private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, List<Point3d> uniqueNodes, Vector<double> nakededges, out Matrix<double> K_red, out Vector<double> load_red)
         {
             int oldRC = load.Count;
-            int newRC = Convert.ToInt16(bdc_value.Sum());
+            int newRC = Convert.ToInt16(bdc_value.Sum()-nakededges.Sum());
             K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
             load_red = Vector<double>.Build.Dense(newRC, 0);
             for (int i = 0, ii = 0; i < oldRC; i++)
             {
                 //is bdc_value in row i free?
-                if (bdc_value[i] == 1)
-                {
+                if (bdc_value[i] == 1 && nakededges[i] == 0)
+                {                    
                     for (int j = 0, jj = 0; j < oldRC; j++)
                     {
                         //is bdc_value in col j free?
-                        if (bdc_value[j] == 1)
-                        {
+                        if (bdc_value[j] == 1 && nakededges[j] == 0)
+                        {                                
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = Math.Round(K[i, j],4);
+                            K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);                               
                         }
+                        //else if (bdc_value[j] == 0 && nakededges[j] == 1)
+                        //{
+                        //    //if not free, remember to skip 1 column when adding next time
+                        //    jj++;
+                        //    jj++;
+                        //}
                         else
                         {
-                            //if not, remember to skip 1 column when adding next time
                             jj++;
                         }
                     }
                     //add to reduced load list
                     load_red[i - ii] = load[i];
                 }
+                //else if (bdc_value[i] == 0 && nakededges[i] == 1)
+                //{
+                //    //if not free, remember to skip 1 row when adding next time
+                //    ii++;
+                //    ii++;
+                //}
                 else
                 {
-                    //if not, remember to skip 1 row when adding next time
                     ii++;
                 }
             }
@@ -360,11 +405,12 @@ namespace Shell
                 int edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeB));
                 if (edgeIndex1 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeB, verticeA)); }
                 int edgeIndex2 = edges.IndexOf(new Line(verticeB, verticeC));
-                if (edgeIndex2 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeC, verticeB)); }
+                if (edgeIndex2 == -1) { edgeIndex2 = edges.IndexOf(new Line(verticeC, verticeB)); }
                 int edgeIndex3 = edges.IndexOf(new Line(verticeC, verticeA));
-                if (edgeIndex3 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeC)); }
+                if (edgeIndex3 == -1) { edgeIndex3 = edges.IndexOf(new Line(verticeA, verticeC)); }
 
                 int[] eindx = new int[] { edgeIndex1, edgeIndex2, edgeIndex3 };
+                int[] vindx = new int[] { indexA, indexB, indexC };
 
                 double x1 = verticeA.X;
                 double x2 = verticeB.X;
@@ -411,9 +457,21 @@ namespace Shell
                         KG[indexC * 3 + row, indexC * 3 + col] += Ke[row + 4 * 2, col + 4 * 2];
 
                         // insert rotations for edges in correct place
-                        KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] = Ke[row + 9, col + 9];
+                        //Rotation to rotation relation
+                        //double insrt = Ke[row * 4 + 3, col * 4 + 3];
+                        //if (insrt == 0)
+                        //{
+                        //    throw new System.ArgumentException("digonal cannot be zero");
+                        //}
+                        KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] += Ke[row * 4 + 3, col * 4 + 3];
+                        //Rotation to z relation lower left
+                        KG[nodeDofs + eindx[row], vindx[col] * 3 + 2] += Ke[row * 4 + 3, col * 4 + 2];
+                        //Rotation to z relation lower left
+                        KG[vindx[row] * 3 + 2, nodeDofs + eindx[col]] += Ke[row * 4 + 2, col * 4 + 3];
                     }
                 }
+
+
 
                     //int ldofs = 4;
 
@@ -765,9 +823,9 @@ namespace Shell
             {
                 int gNodeIndex = uniqueNodes.IndexOf(point);
                 int lNodeIndex = coordlist.IndexOf(point);
-                loads[gNodeIndex * ldofs + 0] = inputLoads[lNodeIndex * 3 + 0];
-                loads[gNodeIndex * ldofs + 1] = inputLoads[lNodeIndex * 3 + 1];
-                loads[gNodeIndex * ldofs + 2] = inputLoads[lNodeIndex * 3 + 2];
+                loads[gNodeIndex * 3 + 0] = inputLoads[lNodeIndex * 3 + 0];
+                loads[gNodeIndex * 3 + 1] = inputLoads[lNodeIndex * 3 + 1];
+                loads[gNodeIndex * 3 + 2] = inputLoads[lNodeIndex * 3 + 2];
             }
             //resetting variables
             inputLoads.Clear();
@@ -810,34 +868,34 @@ namespace Shell
             Vector<double> bdc_value = Vector.Build.Dense(uniqueNodes.Count * 3 + edges.Count ,1);
             List<int> bdcs = new List<int>();
             List<Point3d> bdc_points = new List<Point3d>(); //Coordinates relating til bdc_value in for (eg. x y z)
-            int initnumber = faces.Count;
+            List<int> fixedRotEdges = new List<int>();
             int rows = bdctxt.Count;
-            Matrix<double> bdcrotface = Matrix<double>.Build.Dense(rows, 2, initnumber);
-            //Matrix<int> bdcrotface = Matrix<int>.Build.Dense(rows,2);
 
             //Parse string input
-            for (int i = 0; i < bdctxt.Count; i++)
+            int numOfPoints = 0;
+            if (!bdctxt[rows-1].Contains(":"))
+            {
+                numOfPoints = rows - 1;
+                string[] edgestrtemp = bdctxt[rows - 1].Split(',');
+                List<string> edgestr = new List<string>();
+                edgestr.AddRange(edgestrtemp);
+                for (int i = 0; i < edgestr.Count; i++)
+                {
+                    fixedRotEdges.Add(int.Parse(edgestr[i]));
+                }
+            }
+            else
+            {
+                numOfPoints = bdctxt.Count;
+            }
+            for (int i = 0; i < numOfPoints; i++)
             {
                 //NB! At the moment, the bdc string either looks like
                 //0,0,0:0,0,0
                 //or like
                 //0,0,0:0,0,0:0,..,n where 0,..,n are the indices of mesh faces containing this vertice, and that should be fixed for rotation
-                int bdcrot = 1;
-
-                string[] bdcinfo = bdctxt[i].Split(':');
-                string coordstr = bdcinfo[0];
-                string bdcstr = bdcinfo[1];
-                if (bdcinfo.GetLength(0) == 3)
-                {
-                    string bdcrotfacetxt = bdcinfo[2];
-                    bdcrot = 0;
-                    string[] bdcrotfacetemp = bdcrotfacetxt.Split(',');
-                    bdcrotface[i,0] = int.Parse(bdcrotfacetemp[0]);
-                    if (bdcrotfacetemp.GetLength(0) == 2)
-                    {
-                        bdcrotface[i, 1] = int.Parse(bdcrotfacetemp[1]);
-                    }
-                }
+                string coordstr = bdctxt[i].Split(':')[0];
+                string bdcstr = bdctxt[i].Split(':')[1];
 
                 string[] coordstr1 = (coordstr.Split(','));
                 string[] bdcstr1 = (bdcstr.Split(','));
@@ -847,7 +905,6 @@ namespace Shell
                 bdcs.Add(int.Parse(bdcstr1[0]));
                 bdcs.Add(int.Parse(bdcstr1[1]));
                 bdcs.Add(int.Parse(bdcstr1[2]));
-                bdcs.Add(bdcrot);
             }
 
             //Format to correct entries in bdc_value
@@ -855,66 +912,20 @@ namespace Shell
 
             foreach (var point in bdc_points)
             {
+                int index = bdc_points.IndexOf(point);
                 int i = uniqueNodes.IndexOf(point);
-                bdc_value[i * ldofs + 0] = bdcs[bdc_points.IndexOf(point) * ldofs + 0];
-                bdc_value[i * ldofs + 1] = bdcs[bdc_points.IndexOf(point) * ldofs + 1];
-                bdc_value[i * ldofs + 2] = bdcs[bdc_points.IndexOf(point) * ldofs + 2];
-
-                if (bdcs[bdc_points.IndexOf(point) * ldofs + 3] == 0)
+                bdc_value[i * 3 + 0] = bdcs[index * 3 + 0];
+                bdc_value[i * 3 + 1] = bdcs[index * 3 + 1];
+                bdc_value[i * 3 + 2] = bdcs[index * 3 + 2];
+            }
+            if (numOfPoints == rows-1)
+            {
+                foreach (var edgeindex in fixedRotEdges)
                 {
-                    int faceindex;
-                    Point3d point2 = new Point3d();
-                    int index = bdc_points.IndexOf(point);
-                    if (bdcrotface[bdc_points.IndexOf(point),1] == initnumber)
-                    {
-                        faceindex = Convert.ToInt16(bdcrotface[index, 0]);
-                    }
-                    else
-                    {
-                        faceindex = Convert.ToInt16(bdcrotface[index, 1]);
-                    }
-                    foreach (var p in bdc_points)
-                    {
-                        if (p != point && (faceindex == bdcrotface[bdc_points.IndexOf(p), 0] || faceindex == bdcrotface[bdc_points.IndexOf(p), 1]))
-                        {
-                            point2 = p;
-                            break;
-                        }
-                    }
-                    MeshFace face = faces[faceindex];
-                    int A = face.A;
-                    int B = face.B;
-                    int C = face.C;
-
-                    if (vertices[A] == point)
-                    {
-                        if (vertices[C] == point2)
-                        {
-                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
-                            int newindex = bdc_points.IndexOf(point2);
-                            bdc_value[newindex * ldofs + 3] = 0;
-                        }
-                    }
-                    else if (vertices[B] == point)
-                    {
-                        if (vertices[A] == point2)
-                        {
-                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
-                            int newindex = bdc_points.IndexOf(point2);
-                            bdc_value[newindex * ldofs + 3] = 0;
-                        }
-                    }
-                    else if (vertices[C] == point)
-                    {
-                        if (vertices[B] == point2)
-                        {
-                            bdcs[bdc_points.IndexOf(point) * ldofs + 3] = 1;
-                            int newindex = bdc_points.IndexOf(point2);
-                            bdc_value[newindex * ldofs + 3] = 0;
-                        }
-                    }
+                    bdc_value[edgeindex+uniqueNodes.Count*3] = 0;
                 }
             }
+            
 
             return bdc_value;
         }

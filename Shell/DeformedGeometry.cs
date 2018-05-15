@@ -90,7 +90,7 @@ namespace Shell
                 foreach (var p in vertices)
                 {
                     new_vertices.Add(new Point3d(p.X + def[i]*scale, p.Y + def[i + 1]*scale, p.Z + def[i + 2]*scale));
-                    i += 4;
+                    i += 3;
                 }
 
                 defmesh.Vertices.AddVertices(new_vertices);
