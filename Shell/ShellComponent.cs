@@ -466,7 +466,7 @@ namespace Shell
                         KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] += Ke[row * 4 + 3, col * 4 + 3];
                         //Rotation to z relation lower left
                         KG[nodeDofs + eindx[row], vindx[col] * 3 + 2] += Ke[row * 4 + 3, col * 4 + 2];
-                        //Rotation to z relation lower left
+                        //Rotation to z relation upper right
                         KG[vindx[row] * 3 + 2, nodeDofs + eindx[col]] += Ke[row * 4 + 2, col * 4 + 3];
                     }
                 }
