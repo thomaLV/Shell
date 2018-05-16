@@ -315,6 +315,8 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, List<Point3d> uniqueNodes, Vector<double> nakededges, out Matrix<double> K_red, out Vector<double> load_red)
         {
+            int counter = 0;
+            List<string> placements = new List<string>();
             int oldRC = load.Count;
             int newRC = Convert.ToInt16(bdc_value.Sum());//-nakededges.Sum());
             K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
@@ -333,6 +335,8 @@ namespace Shell
                             K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);
                             if (i == j && K[i, j] <= 0)
                             {
+                                counter++;
+                                placements.Add(i + "," + j);
                                 //throw new System.ArgumentException("digonal cannot be zero " + i +',' + j);
                             }
                         }
@@ -349,6 +353,19 @@ namespace Shell
                     ii++;
                 }
             }
+            if (!K_red.IsSymmetric())
+            {
+                throw new System.ArgumentException("Matrix must be symmetric!");
+            }
+            //if (counter > 0)
+            //{
+            //    string str = null;
+            //    foreach (var item in placements)
+            //    {
+            //        str += item + " ";
+            //    }
+            //    throw new System.ArgumentException("digonal cannot be zero " + counter + " " + str);
+            //}
             //for (int i = 0, j=0; i < size; i++)
             //{
             //    //remove clamped dofs
@@ -558,6 +575,21 @@ namespace Shell
             //transforms lcoord into local coordinate values
             lcoord = tf.Multiply(lcoord);
 
+            bool didSwap;
+            checkIfCounterClockwise(lcoord, out didSwap, out lcoord);
+            if (didSwap)
+            {
+                double temp = x3;
+                x3 = x2;
+                x2 = temp;
+                temp = y3;
+                y3 = y2;
+                y2 = temp;
+                temp = z3;
+                z3 = z2;
+                z2 = temp;
+            }
+
             // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
             x2 = lcoord[0, 1];
@@ -634,21 +666,42 @@ namespace Shell
 
             Matrix<double> Bk_b = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
 
-            Bk_b[0, 0] = 2 * Math.Pow(y23, 2) - (2 * ga6 * y23 * y31) / my6;
-            Bk_b[0, 1] = 2 * Math.Pow(y31, 2) - (2 * my5 * y23 * y31) / ga5;
-            Bk_b[0, 2] = 2 * y23 * y31 * (a5 / ga5 + a6 / my6);
-            Bk_b[0, 4] = (2 * y23 * y31) / ga5;
-            Bk_b[0, 5] = (2 * y23 * y31) / my6;
-            Bk_b[1, 0] = 2 * Math.Pow(x32, 2) - (2 * ga6 * x13 * x32) / my6;
-            Bk_b[1, 1] = 2 * Math.Pow(x13, 2) - (2 * my5 * x13 * x32) / ga5;
-            Bk_b[1, 2] = 2 * x13 * x32 * (a5 / ga5 + a6 / my6);
-            Bk_b[1, 4] = (2 * x13 * x32) / ga5;
-            Bk_b[1, 5] = (2 * x13 * x32) / my6;
-            Bk_b[2, 0] = 4 * x32 * y23 - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / my6;
-            Bk_b[2, 1] = 4 * x13 * y31 - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / ga5;
-            Bk_b[2, 2] = (2 * x13 * y23 + 2 * x32 * y31) * (a5 / ga5 + a6 / my6);
-            Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
-            Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
+            // Wrong from matlab
+            //Bk_b[0, 0] = 2 * Math.Pow(y23, 2) - (2 * ga6 * y23 * y31) / my6;
+            //Bk_b[0, 1] = 2 * Math.Pow(y31, 2) - (2 * my5 * y23 * y31) / ga5;
+            //Bk_b[0, 2] = 2 * y23 * y31 * (a5 / ga5 + a6 / my6);
+            //Bk_b[0, 4] = (2 * y23 * y31) / ga5;
+            //Bk_b[0, 5] = (2 * y23 * y31) / my6;
+            //Bk_b[1, 0] = 2 * Math.Pow(x32, 2) - (2 * ga6 * x13 * x32) / my6;
+            //Bk_b[1, 1] = 2 * Math.Pow(x13, 2) - (2 * my5 * x13 * x32) / ga5;
+            //Bk_b[1, 2] = 2 * x13 * x32 * (a5 / ga5 + a6 / my6);
+            //Bk_b[1, 4] = (2 * x13 * x32) / ga5;
+            //Bk_b[1, 5] = (2 * x13 * x32) / my6;
+            //Bk_b[2, 0] = 4 * x32 * y23 - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / my6;
+            //Bk_b[2, 1] = 4 * x13 * y31 - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / ga5;
+            //Bk_b[2, 2] = (2 * x13 * y23 + 2 * x32 * y31) * (a5 / ga5 + a6 / my6);
+            //Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
+            //Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
+
+            // Correct one:
+            Bk_b[0, 0] = -(2 * (ga4 * my6 * Math.Pow(y23, 2) - a4 * my6 * Math.Pow(y23, 2) - a4 * ga6 * Math.Pow(y31, 2) + ga4 * my6 * Math.Pow(y31, 2) + 2 * ga4 * my6 * y23 * y31)) / (a4 * my6);
+            Bk_b[0, 1] = -(2 * (ga5 * my4 * Math.Pow(y23, 2) - a4 * my5 * Math.Pow(y23, 2) - a4 * ga5 * Math.Pow(y31, 2) + ga5 * my4 * Math.Pow(y31, 2) + 2 * ga5 * my4 * y23 * y31)) / (a4 * ga5);
+            Bk_b[0, 2] = (2 * (ga5 * my6 * Math.Pow(y23, 2) - a5 * my6 * Math.Pow(y23, 2) - a6 * ga5 * Math.Pow(y31, 2) + ga5 * my6 * Math.Pow(y31, 2) + 2 * ga5 * my6 * y23 * y31)) / (ga5 * my6);
+            Bk_b[0, 3] = (2 * Math.Pow((y23 + y31), 2)) / a4;
+            Bk_b[0, 4] = -(2 * Math.Pow(y23, 2)) / ga5;
+            Bk_b[0, 5] = -(2 * Math.Pow(y31, 2)) / my6;
+            Bk_b[1, 0] = -(2 * (ga4 * my6 * Math.Pow(x13, 2) - a4 * my6 * Math.Pow(x32, 2) + ga4 * my6 * Math.Pow(x32, 2) - a4 * ga6 * Math.Pow(x13, 2) + 2 * ga4 * my6 * x13 * x32)) / (a4 * my6);
+            Bk_b[1, 1] = -(2 * (ga5 * my4 * Math.Pow(x13, 2) - a4 * my5 * Math.Pow(x32, 2) + ga5 * my4 * Math.Pow(x32, 2) - a4 * ga5 * Math.Pow(x13, 2) + 2 * ga5 * my4 * x13 * x32)) / (a4 * ga5);
+            Bk_b[1, 2] = (2 * (ga5 * my6 * Math.Pow(x13, 2) - a5 * my6 * Math.Pow(x32, 2) + ga5 * my6 * Math.Pow(x32, 2) - a6 * ga5 * Math.Pow(x13, 2) + 2 * ga5 * my6 * x13 * x32)) / (ga5 * my6);
+            Bk_b[1, 3] = (2 * Math.Pow((x13 + x32), 2)) / a4;
+            Bk_b[1, 4] = -(2 * Math.Pow(x32, 2)) / ga5;
+            Bk_b[1, 5] = -(2 * Math.Pow(x13, 2)) / my6;
+            Bk_b[2, 0] = -(4 * (ga4 * my6 * x13 * y23 - a4 * my6 * x32 * y23 - a4 * ga6 * x13 * y31 + ga4 * my6 * x13 * y31 + ga4 * my6 * x32 * y23 + ga4 * my6 * x32 * y31)) / (a4 * my6);
+            Bk_b[2, 1] = -(4 * (ga5 * my4 * x13 * y23 - a4 * my5 * x32 * y23 - a4 * ga5 * x13 * y31 + ga5 * my4 * x13 * y31 + ga5 * my4 * x32 * y23 + ga5 * my4 * x32 * y31)) / (a4 * ga5);
+            Bk_b[2, 2] = 4 * x13 * y23 + 4 * x13 * y31 + 4 * x32 * y23 + 4 * x32 * y31 - (4 * a5 * x32 * y23) / ga5 - (4 * a6 * x13 * y31) / my6;
+            Bk_b[2, 3] = (4 * (x13 + x32) * (y23 + y31)) / a4;
+            Bk_b[2, 4] = -(4 * x32 * y23) / ga5;
+            Bk_b[2, 5] = -(4 * x13 * y31) / my6;
 
             double Bk_b_add = 1 / (4.0 * Math.Pow(Area, 2)); // additional part to add to every indice in B matrix
 
@@ -692,8 +745,12 @@ namespace Shell
             // and stacking them from [x1 y1 x2 y2 x3 y3 z1 z2 z3 phi1 phi2 phi3]
             // into [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3] which gives the stacking order: { 0 1 6 9 2 3 7 10 4 5 8 11 }
             Matrix<double> ke = ke_m.DiagonalStack(ke_b);
-            ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 });
+            ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 }, 12);
 
+            if (didSwap)
+            {
+                ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7 }, 12);
+            }
 
             #region Directly calculate ke
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
@@ -768,13 +825,42 @@ namespace Shell
             return Ke;
         }
 
-        private Matrix<double> SymmetricRearrangeMatrix(Matrix<double> M, int[] arrangement)
+        private void checkIfCounterClockwise(Matrix<double> coord, out bool didSwap, out Matrix<double> cccoord)
         {
-            Matrix<double> M_new = Matrix<double>.Build.Dense(12,12);
+            cccoord = Matrix<double>.Build.Dense(coord.RowCount, coord.ColumnCount);
+            didSwap = false;
 
-            for (int i = 0; i < 12; i++)
+            Point2d p1 = new Point2d(coord[0, 0], coord[1, 0]);
+            Point2d p2 = new Point2d(coord[0, 1], coord[1, 1]);
+            Point2d p3 = new Point2d(coord[0, 2], coord[1, 2]);
+
+            double[] A = new double[] { p2.X - p1.X, p2.Y - p1.Y };
+            double[] B = new double[] { p3.X - p1.X, p3.Y - p1.Y };
+
+            Point2d leftdir = new Point2d(p1.Y - p2.Y, p2.X - p1.X);
+            double dx = p3.X - p2.X;
+            double dy = p3.Y - p2.Y;
+            // B dot A
+            double dot = dx * leftdir.X + dy * leftdir.Y;
+
+            if (dot < 0)
             {
-                for (int j = 0; j < 12; j++)
+                didSwap = true;
+                cccoord = SymmetricRearrangeMatrix(coord, new int[] { 0, 1, 2 },3);
+            }
+            else
+            {
+                cccoord = coord;
+            }
+        }
+
+        private Matrix<double> SymmetricRearrangeMatrix(Matrix<double> M, int[] arrangement, int rowcol)
+        {
+            Matrix<double> M_new = Matrix<double>.Build.Dense(rowcol,rowcol);
+            
+            for (int i = 0; i < rowcol; i++)
+            {
+                for (int j = 0; j < rowcol; j++)
                 {
                     M_new[i, j] = M[arrangement[i], arrangement[j]];
                 }
