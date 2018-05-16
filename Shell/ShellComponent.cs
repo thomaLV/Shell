@@ -49,11 +49,11 @@ namespace Shell
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
-            pManager.AddTextParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddTextParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddTextParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
             pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
-            pManager.AddNumberParameter("naked edge index", "", "", GH_ParamAccess.list);
+            pManager.AddTextParameter("part timer", "", "", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -225,7 +225,6 @@ namespace Shell
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
                     watch.Start();
                 def_reduced = K_red.Cholesky().Solve(load_red);
-                //def_reduced = K_red.Solve(load_red);
                 watch.Stop();
                     timer = watch.ElapsedMilliseconds - timer;
                     time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
@@ -248,7 +247,7 @@ namespace Shell
             else
             {
                 def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
-                //reactions = def_tot;
+                reactions = def_tot;
 
                 //internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
                 //internalStrains = internalStresses;
@@ -256,11 +255,11 @@ namespace Shell
 
 
             DA.SetDataList(0, def_tot);
-            DA.SetData(1, time.ToString());
+            DA.SetDataList(1, reactions);
             DA.SetData(2, K_red.ToString(32,32));
             DA.SetData(3, K_tot.ToString(43,43));
             DA.SetDataList(4, edges);           
-            DA.SetDataList(5, test1);
+            DA.SetData(5, time.ToString());
         }
 
         //private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
@@ -575,20 +574,20 @@ namespace Shell
             //transforms lcoord into local coordinate values
             lcoord = tf.Multiply(lcoord);
 
-            bool didSwap;
-            checkIfCounterClockwise(lcoord, out didSwap, out lcoord);
-            if (didSwap)
-            {
-                double temp = x3;
-                x3 = x2;
-                x2 = temp;
-                temp = y3;
-                y3 = y2;
-                y2 = temp;
-                temp = z3;
-                z3 = z2;
-                z2 = temp;
-            }
+            //bool didSwap;
+            //checkIfCounterClockwise(lcoord, out didSwap, out lcoord);
+            //if (didSwap)
+            //{
+            //    double temp = x3;
+            //    x3 = x2;
+            //    x2 = temp;
+            //    temp = y3;
+            //    y3 = y2;
+            //    y2 = temp;
+            //    temp = z3;
+            //    z3 = z2;
+            //    z2 = temp;
+            //}
 
             // sets the new (local) coordinate values
             x1 = lcoord[0, 0];
@@ -620,7 +619,7 @@ namespace Shell
             Matrix<double> lcoord_temp = Matrix<double>.Build.DenseOfArray(new double[,] { { x1 }, { y1 }, { z1 } });
             lcoord = lcoord.Append(lcoord_temp);
 
-            //// defines variables for simplicity
+            // defines variables for simplicity
             double x13 = x1 - x3;
             double x32 = x3 - x2;
             double y23 = y2 - y3;
@@ -665,23 +664,6 @@ namespace Shell
             double a6 = a[2];
 
             Matrix<double> Bk_b = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
-
-            // Wrong from matlab
-            //Bk_b[0, 0] = 2 * Math.Pow(y23, 2) - (2 * ga6 * y23 * y31) / my6;
-            //Bk_b[0, 1] = 2 * Math.Pow(y31, 2) - (2 * my5 * y23 * y31) / ga5;
-            //Bk_b[0, 2] = 2 * y23 * y31 * (a5 / ga5 + a6 / my6);
-            //Bk_b[0, 4] = (2 * y23 * y31) / ga5;
-            //Bk_b[0, 5] = (2 * y23 * y31) / my6;
-            //Bk_b[1, 0] = 2 * Math.Pow(x32, 2) - (2 * ga6 * x13 * x32) / my6;
-            //Bk_b[1, 1] = 2 * Math.Pow(x13, 2) - (2 * my5 * x13 * x32) / ga5;
-            //Bk_b[1, 2] = 2 * x13 * x32 * (a5 / ga5 + a6 / my6);
-            //Bk_b[1, 4] = (2 * x13 * x32) / ga5;
-            //Bk_b[1, 5] = (2 * x13 * x32) / my6;
-            //Bk_b[2, 0] = 4 * x32 * y23 - (ga6 * (2 * x13 * y23 + 2 * x32 * y31)) / my6;
-            //Bk_b[2, 1] = 4 * x13 * y31 - (my5 * (2 * x13 * y23 + 2 * x32 * y31)) / ga5;
-            //Bk_b[2, 2] = (2 * x13 * y23 + 2 * x32 * y31) * (a5 / ga5 + a6 / my6);
-            //Bk_b[2, 4] = (2 * x13 * y23 + 2 * x32 * y31) / ga5;
-            //Bk_b[2, 5] = (2 * x13 * y23 + 2 * x32 * y31) / my6;
 
             // Correct one:
             Bk_b[0, 0] = -(2 * (ga4 * my6 * Math.Pow(y23, 2) - a4 * my6 * Math.Pow(y23, 2) - a4 * ga6 * Math.Pow(y31, 2) + ga4 * my6 * Math.Pow(y31, 2) + 2 * ga4 * my6 * y23 * y31)) / (a4 * my6);
@@ -747,10 +729,10 @@ namespace Shell
             Matrix<double> ke = ke_m.DiagonalStack(ke_b);
             ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 }, 12);
 
-            if (didSwap)
-            {
-                ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7 }, 12);
-            }
+            //if (didSwap)
+            //{
+            //    ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7 }, 12);
+            //}
 
             #region Directly calculate ke
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
