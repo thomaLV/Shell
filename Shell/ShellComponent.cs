@@ -224,9 +224,9 @@ namespace Shell
                 //Calculate deformations
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
                     watch.Start();
-                    //def_reduced = K_red.Cholesky().Solve(load_red);
-                def_reduced = K_red.Solve(load_red);
-                    watch.Stop();
+                def_reduced = K_red.Cholesky().Solve(load_red);
+                //def_reduced = K_red.Solve(load_red);
+                watch.Stop();
                     timer = watch.ElapsedMilliseconds - timer;
                     time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
 
@@ -316,28 +316,26 @@ namespace Shell
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, List<Point3d> uniqueNodes, Vector<double> nakededges, out Matrix<double> K_red, out Vector<double> load_red)
         {
             int oldRC = load.Count;
-            int newRC = Convert.ToInt16(bdc_value.Sum()-nakededges.Sum());
+            int newRC = Convert.ToInt16(bdc_value.Sum());//-nakededges.Sum());
             K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
             load_red = Vector<double>.Build.Dense(newRC, 0);
             for (int i = 0, ii = 0; i < oldRC; i++)
             {
                 //is bdc_value in row i free?
-                if (bdc_value[i] == 1 && nakededges[i] == 0)
+                if (bdc_value[i] == 1)// && nakededges[i] == 0)
                 {                    
                     for (int j = 0, jj = 0; j < oldRC; j++)
                     {
                         //is bdc_value in col j free?
-                        if (bdc_value[j] == 1 && nakededges[j] == 0)
+                        if (bdc_value[j] == 1)// && nakededges[j] == 0)
                         {                                
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);                               
+                            K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);
+                            if (i == j && K[i, j] <= 0)
+                            {
+                                //throw new System.ArgumentException("digonal cannot be zero " + i +',' + j);
+                            }
                         }
-                        //else if (bdc_value[j] == 0 && nakededges[j] == 1)
-                        //{
-                        //    //if not free, remember to skip 1 column when adding next time
-                        //    jj++;
-                        //    jj++;
-                        //}
                         else
                         {
                             jj++;
@@ -346,12 +344,6 @@ namespace Shell
                     //add to reduced load list
                     load_red[i - ii] = load[i];
                 }
-                //else if (bdc_value[i] == 0 && nakededges[i] == 1)
-                //{
-                //    //if not free, remember to skip 1 row when adding next time
-                //    ii++;
-                //    ii++;
-                //}
                 else
                 {
                     ii++;
@@ -458,11 +450,6 @@ namespace Shell
 
                         // insert rotations for edges in correct place
                         //Rotation to rotation relation
-                        //double insrt = Ke[row * 4 + 3, col * 4 + 3];
-                        //if (insrt == 0)
-                        //{
-                        //    throw new System.ArgumentException("digonal cannot be zero");
-                        //}
                         KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] += Ke[row * 4 + 3, col * 4 + 3];
                         //Rotation to z relation lower left
                         KG[nodeDofs + eindx[row], vindx[col] * 3 + 2] += Ke[row * 4 + 3, col * 4 + 2];
@@ -884,9 +871,13 @@ namespace Shell
                     fixedRotEdges.Add(int.Parse(edgestr[i]));
                 }
             }
+            else if ((bdctxt[rows - 1] == null))
+            {
+                numOfPoints = bdctxt.Count - 1;
+            }
             else
             {
-                numOfPoints = bdctxt.Count-1;
+                numOfPoints = bdctxt.Count;
             }
             for (int i = 0; i < numOfPoints; i++)
             {
