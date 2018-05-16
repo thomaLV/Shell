@@ -398,9 +398,9 @@ namespace Shell
                 int indexB = uniqueNodes.IndexOf(vertices[face.B]); 
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
-                Point3d verticeA = vertices[indexA];
-                Point3d verticeB = vertices[indexB];
-                Point3d verticeC = vertices[indexC];
+                Point3d verticeA = uniqueNodes[indexA];
+                Point3d verticeB = uniqueNodes[indexB];
+                Point3d verticeC = uniqueNodes[indexC];
 
                 int edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeB));
                 if (edgeIndex1 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeB, verticeA)); }
