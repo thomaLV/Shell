@@ -23,7 +23,7 @@ namespace Shell
         {
         }
 
-        static bool startCalc = true;
+        static bool startCalc = false;
 
         public static void setStart(string s, bool i)
         {
