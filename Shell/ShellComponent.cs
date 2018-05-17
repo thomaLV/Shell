@@ -190,9 +190,12 @@ namespace Shell
             Matrix<double> K_red;
             Vector<double> load_red;
 
+            // Initiate the timer for the important parts
             String time = "TrySolve Start:" + Environment.NewLine;
             long timer = 0;
             Stopwatch watch = new Stopwatch();
+
+            // Atempt to "fix" the mesh if several parts
 
 
             #region Create global and reduced stiffness matrix
@@ -473,39 +476,7 @@ namespace Shell
                         KG[vindx[row] * 3 + 2, nodeDofs + eindx[col]] += Ke[row * 4 + 2, col * 4 + 3];
                     }
                 }
-
-
-
-                    //int ldofs = 4;
-
-                    //Inputting values to correct entries in Global Stiffness Matrix
-                    //for (int row = 0; row < ldofs; row++)
-                    //{
-                    //    for (int col = 0; col < ldofs; col++)
-                    //    {
-                    //        //top left 4x4 of K-element matrix
-                    //        KG[indexA * ldofs + row, indexA * ldofs + col] += Ke[row, col];
-                    //        //top middle 4x4 of k-element matrix
-                    //        KG[indexA * ldofs + row, indexB * ldofs + col] += Ke[row, col + ldofs];
-                    //        //top right 4x4 of k-element matrix  
-                    //        KG[indexA * ldofs + row, indexC * ldofs + col] += Ke[row, col + ldofs * 2];
-
-                    //        //middle left 4x4 of k-element matrix
-                    //        KG[indexB * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs, col];
-                    //        //middle middle 4x4 of k-element matrix
-                    //        KG[indexB * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs, col + ldofs];
-                    //        //middle right 4x4 of k-element matrix
-                    //        KG[indexB * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs, col + ldofs * 2];
-
-                    //        //bottom left 4x4 of k-element matrix
-                    //        KG[indexC * ldofs + row, indexA * ldofs + col] += Ke[row + ldofs * 2, col];
-                    //        //bottom middle 4x4 of k-element matrix
-                    //        KG[indexC * ldofs + row, indexB * ldofs + col] += Ke[row + ldofs * 2, col + ldofs];
-                    //        //bottom right 4x4 of k-element matrix
-                    //        KG[indexC * ldofs + row, indexC * ldofs + col] += Ke[row + ldofs * 2, col + ldofs * 2];
-                    //    }
-                    //}
-                }
+            }
             return KG;
         }
 
@@ -927,32 +898,24 @@ namespace Shell
             int rows = bdctxt.Count;
 
             //Parse string input
-            int numOfPoints = 0;
-            if ((bdctxt[rows-1] != null) && !bdctxt[rows-1].Contains(":"))
-            {
-                numOfPoints = rows - 1;
-                string[] edgestrtemp = bdctxt[rows - 1].Split(',');
-                List<string> edgestr = new List<string>();
-                edgestr.AddRange(edgestrtemp);
-                for (int i = 0; i < edgestr.Count; i++)
-                {
-                    fixedRotEdges.Add(int.Parse(edgestr[i]));
-                }
-            }
-            else if ((bdctxt[rows - 1] == null))
-            {
-                numOfPoints = bdctxt.Count - 1;
-            }
-            else
-            {
-                numOfPoints = bdctxt.Count;
-            }
+            int numOfPoints = bdctxt.Count;
             for (int i = 0; i < numOfPoints; i++)
             {
-                //NB! At the moment, the bdc string either looks like
-                //0,0,0:0,0,0
-                //or like
-                //0,0,0:0,0,0:0,..,n where 0,..,n are the indices of mesh faces containing this vertice, and that should be fixed for rotation
+                if (bdctxt[i] == null)
+                {
+                    continue;
+                }
+                else if (!bdctxt[i].Contains(":"))
+                {
+                    string[] edgestrtemp = bdctxt[i].Split(',');
+                    List<string> edgestr = new List<string>();
+                    edgestr.AddRange(edgestrtemp);
+                    for (int j = 0; j < edgestr.Count; j++)
+                    {
+                        fixedRotEdges.Add(int.Parse(edgestr[j]));
+                    }
+                    continue;
+                }
                 string coordstr = bdctxt[i].Split(':')[0];
                 string bdcstr = bdctxt[i].Split(':')[1];
 
@@ -968,7 +931,6 @@ namespace Shell
 
             //Format to correct entries in bdc_value
 
-
             foreach (var point in bdc_points)
             {
                 int index = bdc_points.IndexOf(point);
@@ -977,12 +939,10 @@ namespace Shell
                 bdc_value[i * 3 + 1] = bdcs[index * 3 + 1];
                 bdc_value[i * 3 + 2] = bdcs[index * 3 + 2];
             }
-            if (numOfPoints == rows-1)
+
+            foreach (var edgeindex in fixedRotEdges)
             {
-                foreach (var edgeindex in fixedRotEdges)
-                {
-                    bdc_value[edgeindex+uniqueNodes.Count*3] = 0;
-                }
+                bdc_value[edgeindex+uniqueNodes.Count*3] = 0;
             }
             
 

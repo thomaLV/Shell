@@ -213,11 +213,11 @@ namespace Shell
                     GH_Capsule button;
                     if (startDef == false)
                     {
-                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, GH_Palette.Grey, "Halt", 3, 0);
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, GH_Palette.Grey, "Hidden", 3, 0);
                     }
                     else
                     {
-                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Run", 3, 0);
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Displayed", 3, 0);
                     }
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();

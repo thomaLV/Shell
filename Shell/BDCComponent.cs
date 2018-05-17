@@ -104,7 +104,6 @@ namespace Shell
 
             int NoOfEdges = vertices.Count + faces.Count - 1;
             List<Line> edges = new List<Line>(NoOfEdges);
-            int[,] vertexInEdge = new int[NoOfEdges, 2]; // Nødvendig?? usikkert
             foreach (var face in faces)
             {
                 Point3d vA = vertices[face.A];
@@ -276,7 +275,11 @@ namespace Shell
                         }
                     }
                 }
-                indices.Add(tempL);
+                if (tempL.Count > 0)
+                {
+                    indices.Add(tempL);
+                }
+                //indices.Add(tempL);
             }
             return indices;
         }
