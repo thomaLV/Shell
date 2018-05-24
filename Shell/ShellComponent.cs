@@ -201,9 +201,13 @@ namespace Shell
             #region Create global and reduced stiffness matrix
 
             //Create global stiffness matrix
+            
 
             watch.Start();
-            Matrix<double> K_tot = GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, E, A, Iy, Iz, J, G, nu, t);
+            Matrix<double> B;
+            List<int> Border;
+            Matrix<double> K_tot;
+            GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, A, Iy, Iz, J, G, nu, t, out K_tot, out B, out Border);
             watch.Stop();
             timer = watch.ElapsedMilliseconds - timer;
             time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
@@ -223,7 +227,6 @@ namespace Shell
 
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
-                bool test = K_red.IsSymmetric();
                 //Calculate deformations
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
                     watch.Start();
@@ -240,6 +243,7 @@ namespace Shell
 
                 //Calculate the internal strains and stresses in each member
                 // m = -h^3/12 * C * Bk * v
+
                 // 
                 // strain = B * v
                 // stress = C * strain
@@ -395,13 +399,16 @@ namespace Shell
             }
         }
 
-        private Matrix<double> GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Line> edges, List<Point3d> uniqueNodes, double E, double A, double Iy, double Iz, double J, double G, double nu, double t)
-        {
-            int gdofs = uniqueNodes.Count * 3 + edges.Count;
+        private void GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Line> edges, List<Point3d> uniqueNodes, int gdofs, double E, double A, double Iy, double Iz, double J, double G, double nu, double t, out Matrix<double> KG, out Matrix<double> B, out List<int> BDefOrder )
+        {         
+            int NoOfFaces = faces.Count;
+            int nodeDofs = uniqueNodes.Count * 3;
 
-            // take into account that there are more sides than veritces
+            // Want to keep the B matrices for later calculations, we also should keep the indices for nodes and edges for speed
+            B = Matrix<double>.Build.Dense(NoOfFaces*6, 6);
+            BDefOrder = new List<int>(NoOfFaces * 6);
 
-            var KG = Matrix<double>.Build.Dense(gdofs, gdofs);
+            KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
             foreach (var face in faces)
             {
@@ -439,9 +446,11 @@ namespace Shell
                 double[] yList = new double[3] { y1, y2, y3 };
                 double[] zList = new double[3] { z1, z2, z3 };
 
-                Matrix<double> Ke = ElementStiffnessMatrix(xList, yList, zList, E, nu, t);
-
-                int nodeDofs = uniqueNodes.Count * 3;
+                Matrix<double> Ke; // given as [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3]
+                Matrix<double> Be;
+                ElementStiffnessMatrix(xList, yList, zList, E, nu, t, out Ke, out Be);
+                BDefOrder.AddRange(new int[] { indexA * 3, indexA * 3 + 1, indexB * 3, indexB * 3 + 1, indexC * 3, indexC * 3 + 1, indexA * 3 + 2, indexB * 3 + 2, indexC * 3 + 2, nodeDofs + eindx[0], nodeDofs + eindx[1], nodeDofs + eindx[2] });
+                        
                 for (int row = 0; row < 3; row++)
                 {
                     for (int col = 0; col < 3; col++)
@@ -477,10 +486,9 @@ namespace Shell
                     }
                 }
             }
-            return KG;
         }
 
-        private Matrix<double> ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double E, double nu, double t)
+        private void ElementStiffnessMatrix(double[] xList, double[] yList, double[] zList, double E, double nu, double t, out Matrix<double> Ke, out Matrix<double> B)
         {
 
             #region Get global coordinates and transform into local cartesian system
@@ -635,8 +643,6 @@ namespace Shell
             double a6 = a[2];
 
             Matrix<double> Bk_b = Matrix<double>.Build.Dense(3, 6); // Exported from Matlab
-
-            // Correct one:
             Bk_b[0, 0] = -(2 * (ga4 * my6 * Math.Pow(y23, 2) - a4 * my6 * Math.Pow(y23, 2) - a4 * ga6 * Math.Pow(y31, 2) + ga4 * my6 * Math.Pow(y31, 2) + 2 * ga4 * my6 * y23 * y31)) / (a4 * my6);
             Bk_b[0, 1] = -(2 * (ga5 * my4 * Math.Pow(y23, 2) - a4 * my5 * Math.Pow(y23, 2) - a4 * ga5 * Math.Pow(y31, 2) + ga5 * my4 * Math.Pow(y31, 2) + 2 * ga5 * my4 * y23 * y31)) / (a4 * ga5);
             Bk_b[0, 2] = (2 * (ga5 * my6 * Math.Pow(y23, 2) - a5 * my6 * Math.Pow(y23, 2) - a6 * ga5 * Math.Pow(y31, 2) + ga5 * my6 * Math.Pow(y31, 2) + 2 * ga5 * my6 * y23 * y31)) / (ga5 * my6);
@@ -694,16 +700,13 @@ namespace Shell
 
             #endregion
 
+            B = Bk_m.Stack(Bk_b);
+
             // input membrane and bending part into full element stiffness matrix
             // and stacking them from [x1 y1 x2 y2 x3 y3 z1 z2 z3 phi1 phi2 phi3]
             // into [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3] which gives the stacking order: { 0 1 6 9 2 3 7 10 4 5 8 11 }
             Matrix<double> ke = ke_m.DiagonalStack(ke_b);
-            ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 }, 12);
-
-            //if (didSwap)
-            //{
-            //    ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7 }, 12);
-            //}
+            ke = SymmetricRearrangeMatrix(ke, new int[] { 0, 1, 6, 9, 2, 3, 7, 10, 4, 5, 8, 11 }, 12); //strictly not necessary, but is done for simplicity and understandability
 
             #region Directly calculate ke
             //ke calculated in matlab script Simplest_shell_triangle.m in local xy coordinates
@@ -772,10 +775,8 @@ namespace Shell
             #endregion
 
 
-            Matrix<double> Ke = ke.Multiply(T);
+            Ke = ke.Multiply(T);
             Ke = T_T.Multiply(Ke);
-
-            return Ke;
         }
 
         private void checkIfCounterClockwise(Matrix<double> coord, out bool didSwap, out Matrix<double> cccoord)
@@ -805,6 +806,20 @@ namespace Shell
             {
                 cccoord = coord;
             }
+        }
+
+        private Matrix<double> RearrangeMatrixRows(Matrix<double> M, int[] arrangement, int row, int col)
+        {
+            Matrix<double> M_new = Matrix<double>.Build.Dense(row, col);
+
+            for (int i = 0; i < row; i++)
+            {
+                for (int j = 0; j < col; j++)
+                {
+                    M_new[i, j] = M[arrangement[i],j];
+                }
+            }
+            return M_new;
         }
 
         private Matrix<double> SymmetricRearrangeMatrix(Matrix<double> M, int[] arrangement, int rowcol)
