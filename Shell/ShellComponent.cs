@@ -91,7 +91,9 @@ namespace Shell
 
             // Number of edges from Euler's formula
             int NoOfEdges = vertices.Count + faces.Count - 1;
+
             List<Line> edges = new List<Line>(NoOfEdges);
+            #region Create edge list
             Vector<double> nakedEdge = Vector<double>.Build.Dense(NoOfEdges,1);
             foreach (var face in faces)
             {
@@ -145,6 +147,7 @@ namespace Shell
                     nakedEdge[i] = 0;
                 }
             }
+            #endregion
 
             List<Point3d> uniqueNodes;
             GetUniqueNodes(vertices, out uniqueNodes);
@@ -204,10 +207,10 @@ namespace Shell
             
 
             watch.Start();
-            Matrix<double> B;
-            List<int> Border;
+            Matrix<double> B; // all B_k matrices collected
+            List<int> BOrder; // 
             Matrix<double> K_tot;
-            GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, A, Iy, Iz, J, G, nu, t, out K_tot, out B, out Border);
+            GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, A, Iy, Iz, J, G, nu, t, out K_tot, out B, out BOrder);
             watch.Stop();
             timer = watch.ElapsedMilliseconds - timer;
             time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
@@ -243,12 +246,13 @@ namespace Shell
 
                 //Calculate the internal strains and stresses in each member
                 // m = -h^3/12 * C * Bk * v
-
+                // strain = -z * B_k * v
                 // 
                 // strain = B * v
                 // stress = C * strain
 
-                //CalculateInternalStrainsAndStresses(def_tot, vertices, E, out internalStresses, out internalStrains);
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, E, t, out internalStresses, out internalStrains);
+
                 #endregion
             }
             else
@@ -269,41 +273,40 @@ namespace Shell
             DA.SetData(5, time.ToString());
         }
 
-        //private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, double E, out Vector<double> internalStresses, out Vector<double> internalStrains)
-        //{
-        //    //preallocating lists
-        //    internalStresses = new List<double>(geometry.Count);
-        //    internalStrains = new List<double>(geometry.Count);
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, double E, double t, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        {
+            //preallocating lists
+            internalStresses = Vector<double>.Build.Dense(faces.Count*6);
+            internalStrains = Vector<double>.Build.Dense(faces.Count*6);
 
-        //    foreach (Line line in geometry)
-        //    {
-        //        int index1 = points.IndexOf(new Point3d(Math.Round(line.From.X, 5), Math.Round(line.From.Y, 5), Math.Round(line.From.Z, 5)));
-        //        int index2 = points.IndexOf(new Point3d(Math.Round(line.To.X, 5), Math.Round(line.To.Y, 5), Math.Round(line.To.Z, 5)));
 
-        //        //fetching deformation of point
-        //        double x1 = def[index1 * 3 + 0];
-        //        double y1 = def[index1 * 3 + 1];
-        //        double z1 = def[index1 * 3 + 2];
-        //        double x2 = def[index2 * 3 + 0];
-        //        double y2 = def[index2 * 3 + 1];
-        //        double z2 = def[index2 * 3 + 2];
+            for (int i = 0; i < faces.Count; i++)
+            {
+                Matrix<double> CSTB = Matrix<double>.Build.Dense(3, 6);
+                Matrix<double> MorleyB = Matrix<double>.Build.Dense(3, 6);
+                for (int row = 0; row < 3; row++)
+                {
+                    for (int col = 0; col < 6; col++)
+                    {
+                        CSTB[row, col] = B[row + 6 * i, col];
+                        MorleyB[row, col] = B[row + 3 + 6 * i, col];
+                    }
+                }
+                Vector<double> CSTv = Vector<double>.Build.Dense(6);
+                Vector<double> Morleyv = Vector<double>.Build.Dense(6);
+                for (int j = 0; j < 6; j++)
+                {
+                    CSTv[j] = def[BOrder[i * 12 + j]];
+                    Morleyv[j] = def[BOrder[i * 12 + 6 + j]];
+                }
 
-        //        //new node coordinates for deformed nodes
-        //        double nx1 = points[index1].X + x1;
-        //        double ny1 = points[index1].X + y1;
-        //        double nz1 = points[index1].Z + z1;
-        //        double nx2 = points[index2].X + x2;
-        //        double ny2 = points[index2].X + y2;
-        //        double nz2 = points[index2].Z + z2;
+                Vector<double> CSTstrains = CSTB * CSTv;
+                Vector<double> Morleystrains = -t*0.5 * (MorleyB * Morleyv);
 
-        //        //calculating dL = length of deformed line - original length of line
-        //        double dL = Math.Sqrt(Math.Pow((nx2 - nx1), 2) + Math.Pow((ny2 - ny1), 2) + Math.Pow((nz2 - nz1), 2)) - line.Length;
-
-        //        //calculating strain and stress
-        //        internalStrains.Add(dL / line.Length);
-        //        internalStresses.Add(internalStrains[internalStrains.Count - 1] * E);
-        //    }
-        //}
+                internalStrains.SetSubVector(i * 12, 6, CSTB * CSTv);
+                internalStrains.SetSubVector(i * 12 + 6, 6, -t * 0.5 * (MorleyB * Morleyv));
+            }
+        }
 
         private Vector<double> RestoreTotalDeformationVector(Vector<double> deformations_red, Vector<double> bdc_value, Vector<double> nakededges)
         {
