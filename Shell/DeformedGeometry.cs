@@ -7,7 +7,7 @@ using System.Drawing;
 using Grasshopper.GUI.Canvas;
 using System.Windows.Forms;
 using Grasshopper.GUI;
-
+using MathNet.Numerics.LinearAlgebra;
 
 namespace Shell
 {
@@ -40,8 +40,10 @@ namespace Shell
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformation", "Def", "Deformations from ShellCalc", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Stresses", "Stress", "Stresses from ShellCalc", GH_ParamAccess.list);
             pManager.AddMeshParameter("Mesh", "M", "Input Geometry (Mesh format)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 10);
+            pManager.AddIntegerParameter("stressdirection", "strdir", "", GH_ParamAccess.item, 0);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -56,24 +58,34 @@ namespace Shell
                 #region Fetch input
                 //Expected inputs and outputs
                 List<double> def = new List<double>();
+                List<double> stresses = new List<double>();
                 Mesh mesh = new Mesh();
-                double scale = 1000;
+                double scale = 10;
                 List<Line> defGeometry = new List<Line>();
                 List<Point3d> defPoints = new List<Point3d>();
 
+                int dimension = 0;
+
                 //Set expected inputs from Indata
                 if (!DA.GetDataList(0, def)) return;
-                if (!DA.GetData(1, ref mesh)) return;
-                if (!DA.GetData(2, ref scale)) return;
+                if (!DA.GetDataList(1, stresses)) return;
+                if (!DA.GetData(2, ref mesh)) return;
+                if (!DA.GetData(3, ref scale)) return;
+                if (!DA.GetData(4, ref dimension)) return;
                 #endregion
 
                 #region Decompose Mesh and initiate the new deformed mesh defmesh
 
                 List<Point3d> vertices = new List<Point3d>();
+                List<MeshFace> faces = new List<MeshFace>();
 
                 foreach (var vertice in mesh.Vertices)
                 {
                     vertices.Add(vertice);
+                }
+                foreach (var face in mesh.Faces)
+                {
+                    faces.Add(face);
                 }
 
                 Mesh defmesh = new Mesh();
@@ -94,6 +106,9 @@ namespace Shell
                 }
 
                 defmesh.Vertices.AddVertices(new_vertices);
+
+                Mesh coloredDefMesh = defmesh.DuplicateMesh();
+                SetMeshColors(defmesh, stresses, new_vertices, faces, dimension, out coloredDefMesh);
 
                 #endregion
 
@@ -133,9 +148,90 @@ namespace Shell
 
 
                 //Set output data
-                DA.SetData(0, defmesh);
+                DA.SetData(0, coloredDefMesh);
             }
         }   //End of main program
+
+        private void SetMeshColors(Mesh meshIn, List<double> stresses, List<Point3d> vertices, List<MeshFace> faces, int direction, out Mesh meshOut)
+        {
+            meshOut = meshIn.DuplicateMesh();
+
+            double max = 0;
+            double min = 0;
+            List<int> R = new List<int>(faces.Count);
+            List<int> G = new List<int>(faces.Count);
+            List<int> B = new List<int>(faces.Count);
+            int[,] facesConnectedToVertex = new int[faces.Count,3];
+
+            for (int i = 0; i < stresses.Count/6; i++)
+            {
+                double stress = stresses[i * 6 + direction];
+                if (stress > max)
+                {
+                    max = stress;
+                }
+                else if (stress < min)
+                {
+                    min = stress;
+                }
+            }
+            
+            List<double> colorList = new List<double>();
+
+            for (int i = 0; i < faces.Count; i++)
+            {
+                double stress = stresses[i*6+direction];
+
+                R.Add(0);
+                G.Add(0);
+                B.Add(0);
+
+                if (stress >= max*0.5 && max != 0)
+                {
+                    R[i] = 255;
+                    G[i] = Convert.ToInt32(Math.Round(255 * (stress - max * 0.5) / (max * 0.5)));
+                }
+                else if (stress < max*0.5 && stress >= 0 && max != 0)
+                {
+                    G[i] = 255;
+                    R[i] = Convert.ToInt32(Math.Round(255 * (stress) / (max * 0.5)));
+                }
+                else if (stress < 0 && stress > min*0.5 && min != 0)
+                {
+                    G[i] = 255;
+                    B[i] = Convert.ToInt32(Math.Round(255 * (stress) / (min * 0.5)));
+                }
+                else if (stress <= min*0.5 && min != 0)
+                {
+                    B[i] = 255;
+                    G[i] = Convert.ToInt32(Math.Round(255 * (stress - min*0.5) / (min * 0.5)));
+                }
+            }
+
+            for (int i = 0; i < vertices.Count; i++)
+            {
+                List<int> vertex = new List<int>();
+                int vR = 0, vG = 0, vB = 0;
+                for (int j = 0; j < faces.Count; j++)
+                {
+                    if (faces[j].A == i || faces[j].B == i || faces[j].C == i)
+                    {
+                        vertex.Add(j);
+                    }
+                }
+                for (int j = 0; j < vertex.Count; j++)
+                {
+                    vR += R[vertex[j]];
+                    vG += G[vertex[j]];
+                    vB += B[vertex[j]];
+                }
+                vR /= vertex.Count;
+                vG /= vertex.Count;
+                vB /= vertex.Count;
+
+                meshOut.VertexColors.Add(vR, vG, vB);
+            }
+        }
 
         private List<Point3d> CreatePointList(List<Line> geometry)
         {

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 
 using Grasshopper.Kernel;
-using Rhino.Geometry;
 using System.Drawing;
 using Grasshopper.GUI.Canvas;
 using System.Windows.Forms;
@@ -11,6 +10,7 @@ using Grasshopper.GUI;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Double;
 using System.Diagnostics;
+using Rhino.Geometry;
 
 namespace Shell
 {
@@ -50,8 +50,8 @@ namespace Shell
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
-            pManager.AddTextParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
-            pManager.AddTextParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
             pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
             pManager.AddTextParameter("part timer", "", "", GH_ParamAccess.item);
         }
@@ -251,7 +251,8 @@ namespace Shell
                 // strain = B * v
                 // stress = C * strain
 
-                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, E, t, out internalStresses, out internalStrains);
+                // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, E, t, nu, out internalStresses, out internalStrains);
 
                 #endregion
             }
@@ -260,25 +261,31 @@ namespace Shell
                 def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
                 reactions = def_tot;
 
-                //internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
-                //internalStrains = internalStresses;
+                internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                internalStrains = internalStresses;
             }
-
 
             DA.SetDataList(0, def_tot);
             DA.SetDataList(1, reactions);
-            DA.SetData(2, K_red.ToString(32,32));
-            DA.SetData(3, K_tot.ToString(43,43));
+            DA.SetDataList(2, internalStresses);
+            DA.SetDataList(3, internalStrains);
             DA.SetDataList(4, edges);           
             DA.SetData(5, time.ToString());
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, double E, double t, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
         {
             //preallocating lists
             internalStresses = Vector<double>.Build.Dense(faces.Count*6);
             internalStrains = Vector<double>.Build.Dense(faces.Count*6);
-
+            Matrix<double> C = Matrix<double>.Build.Dense(3, 3);
+            C[0, 0] = 1;
+            C[0, 1] = nu;
+            C[1, 0] = nu;
+            C[1, 1] = 1;
+            C[2, 2] = (1 - nu) * 0.5;
+            double C_add = E / (1 - Math.Pow(nu, 2));
+            C = C_add * C;
 
             for (int i = 0; i < faces.Count; i++)
             {
@@ -300,11 +307,19 @@ namespace Shell
                     Morleyv[j] = def[BOrder[i * 12 + 6 + j]];
                 }
 
-                Vector<double> CSTstrains = CSTB * CSTv;
-                Vector<double> Morleystrains = -t*0.5 * (MorleyB * Morleyv);
+                Vector<double> CSTstrains = CSTB.Multiply(CSTv);
+                Vector<double> Morleystrains = -t*0.5 * (MorleyB.Multiply(Morleyv));
 
-                internalStrains.SetSubVector(i * 12, 6, CSTB * CSTv);
-                internalStrains.SetSubVector(i * 12 + 6, 6, -t * 0.5 * (MorleyB * Morleyv));
+                Vector<double> CSTstress = C.Multiply(CSTstrains);
+                Vector < double > Morleystress = C.Multiply(Morleystrains);
+
+                for (int j = 0; j < 3; j++)
+                {
+                    internalStrains[i * 6 + j] = CSTstrains[j];
+                    internalStrains[i * 6 + 3 + j] = Morleystrains[j];
+                    internalStresses[i * 6 + j] = CSTstress[j];
+                    internalStresses[i * 6 + 3 + j] = Morleystress[j];
+                }
             }
         }
 
@@ -410,6 +425,7 @@ namespace Shell
             // Want to keep the B matrices for later calculations, we also should keep the indices for nodes and edges for speed
             B = Matrix<double>.Build.Dense(NoOfFaces*6, 6);
             BDefOrder = new List<int>(NoOfFaces * 6);
+            int Bcount = 0;
 
             KG = Matrix<double>.Build.Dense(gdofs, gdofs);
 
@@ -452,6 +468,8 @@ namespace Shell
                 Matrix<double> Ke; // given as [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3]
                 Matrix<double> Be;
                 ElementStiffnessMatrix(xList, yList, zList, E, nu, t, out Ke, out Be);
+                B.SetSubMatrix(Bcount * 6, 0, Be);
+                Bcount++;
                 BDefOrder.AddRange(new int[] { indexA * 3, indexA * 3 + 1, indexB * 3, indexB * 3 + 1, indexC * 3, indexC * 3 + 1, indexA * 3 + 2, indexB * 3 + 2, indexC * 3 + 2, nodeDofs + eindx[0], nodeDofs + eindx[1], nodeDofs + eindx[2] });
                         
                 for (int row = 0; row < 3; row++)
@@ -703,7 +721,7 @@ namespace Shell
 
             #endregion
 
-            B = Bk_m.Stack(Bk_b);
+            B = Bk_m.Stack(Bk_b*Bk_b_add);
 
             // input membrane and bending part into full element stiffness matrix
             // and stacking them from [x1 y1 x2 y2 x3 y3 z1 z2 z3 phi1 phi2 phi3]
