@@ -357,12 +357,6 @@ namespace Shell
                         {                                
                             //if yes, then add to new K
                             K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);
-                            if (i == j && K[i, j] <= 0)
-                            {
-                                counter++;
-                                placements.Add(i + "," + j);
-                                //throw new System.ArgumentException("digonal cannot be zero " + i +',' + j);
-                            }
                         }
                         else
                         {
@@ -377,31 +371,6 @@ namespace Shell
                     ii++;
                 }
             }
-            if (!K_red.IsSymmetric())
-            {
-                throw new System.ArgumentException("Matrix must be symmetric!");
-            }
-            //if (counter > 0)
-            //{
-            //    string str = null;
-            //    foreach (var item in placements)
-            //    {
-            //        str += item + " ";
-            //    }
-            //    throw new System.ArgumentException("digonal cannot be zero " + counter + " " + str);
-            //}
-            //for (int i = 0, j=0; i < size; i++)
-            //{
-            //    //remove clamped dofs
-            //    if (bdc_value[i] == 0)
-            //    {
-            //        K_red = K_red.RemoveRow(i - j);
-            //        K_red = K_red.RemoveColumn(i - j);
-            //        load_redu.RemoveAt(i - j);
-            //        j++;
-            //    }
-            //}
-            //load_red = Vector<double>.Build.DenseOfEnumerable(load_redu);
         }
 
         private void GetUniqueNodes(List<Point3d> vertices, out List<Point3d> uniqueNodes)
