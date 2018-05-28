@@ -108,44 +108,10 @@ namespace Shell
                 defmesh.Vertices.AddVertices(new_vertices);
 
                 Mesh coloredDefMesh = defmesh.DuplicateMesh();
-                SetMeshColors(defmesh, stresses, new_vertices, faces, dimension, out coloredDefMesh);
+                // Direction can be 0:x
+                SetMeshColors(defmesh, stresses, new_vertices, faces, dimension, out coloredDefMesh); 
 
                 #endregion
-
-                //#region Scale deformations
-                ////List all nodes (every node only once), numbering them according to list index
-                //List<Point3d> points = CreatePointList(geometry);
-
-                //int index = 0;
-                ////loops through all points and scales x-, y- and z-dir
-
-                ////u(x) = Na, N = shape func, a = nodal values (dof) 
-                //foreach (Point3d point in points)
-                //{
-                //    //fetch global x,y,z placement of point
-                //    double x = point.X;
-                //    double y = point.Y;
-                //    double z = point.Z;
-
-                //    //scales x and z according to input Scale
-                //    defPoints.Add(new Point3d(x + scale * def[index], y + scale * def[index + 1], z + scale * def[index + 2]));
-                //    index += 6;
-                //}
-                //#endregion
-
-                //#region Create geometry
-                ////creates deformed geometry based on initial geometry placement
-                //foreach (Line line in geometry)
-                //{
-                //    //fetches index of original start and endpoint
-                //    int i1 = points.IndexOf(line.From);
-                //    int i2 = points.IndexOf(line.To);
-
-                //    //creates new line based on scaled deformation of said points
-                //    defGeometry.Add(new Line(defPoints[i1], defPoints[i2]));
-                //}
-                //#endregion
-
 
                 //Set output data
                 DA.SetData(0, coloredDefMesh);
@@ -156,25 +122,25 @@ namespace Shell
         {
             meshOut = meshIn.DuplicateMesh();
 
-            double max = 0;
-            double min = 0;
+            double max = 355;
+            double min = -355;
             List<int> R = new List<int>(faces.Count);
             List<int> G = new List<int>(faces.Count);
             List<int> B = new List<int>(faces.Count);
             int[,] facesConnectedToVertex = new int[faces.Count,3];
 
-            for (int i = 0; i < stresses.Count/6; i++)
-            {
-                double stress = stresses[i * 6 + direction];
-                if (stress > max)
-                {
-                    max = stress;
-                }
-                else if (stress < min)
-                {
-                    min = stress;
-                }
-            }
+            //for (int i = 0; i < stresses.Count/6; i++)
+            //{
+            //    double stress = stresses[i * 6 + direction];
+            //    if (stress > max)
+            //    {
+            //        max = stress;
+            //    }
+            //    else if (stress < min)
+            //    {
+            //        min = stress;
+            //    }
+            //}
             
             List<double> colorList = new List<double>();
 
@@ -186,7 +152,11 @@ namespace Shell
                 G.Add(0);
                 B.Add(0);
 
-                if (stress >= max*0.5 && max != 0)
+                if (stress > max)
+                {
+                    R[i] = 255;
+                }
+                else if (stress >= max*0.5 && max != 0)
                 {
                     R[i] = 255;
                     G[i] = Convert.ToInt32(Math.Round(255 * (stress - max * 0.5) / (max * 0.5)));
@@ -201,10 +171,14 @@ namespace Shell
                     G[i] = 255;
                     B[i] = Convert.ToInt32(Math.Round(255 * (stress) / (min * 0.5)));
                 }
-                else if (stress <= min*0.5 && min != 0)
+                else if (stress <= min*0.5 && min != 0 && stress > min)
                 {
                     B[i] = 255;
                     G[i] = Convert.ToInt32(Math.Round(255 * (stress - min*0.5) / (min * 0.5)));
+                }
+                else if (stress < min)
+                {
+                    B[i] = 255;
                 }
             }
 

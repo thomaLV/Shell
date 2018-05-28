@@ -198,9 +198,6 @@ namespace Shell
             long timer = 0;
             Stopwatch watch = new Stopwatch();
 
-            // Atempt to "fix" the mesh if several parts
-
-
             #region Create global and reduced stiffness matrix
 
             //Create global stiffness matrix
@@ -227,7 +224,6 @@ namespace Shell
 
             if (startCalc)
             {
-
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
                 //Calculate deformations
@@ -244,15 +240,8 @@ namespace Shell
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
 
-                //Calculate the internal strains and stresses in each member
-                // m = -h^3/12 * C * Bk * v
-                // strain = -z * B_k * v
-                // 
-                // strain = B * v
-                // stress = C * strain
-
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
-                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, E, t, nu, out internalStresses, out internalStrains);
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains);
 
                 #endregion
             }
@@ -273,7 +262,7 @@ namespace Shell
             DA.SetData(5, time.ToString());
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
         {
             //preallocating lists
             internalStresses = Vector<double>.Build.Dense(faces.Count*6);
@@ -289,6 +278,79 @@ namespace Shell
 
             for (int i = 0; i < faces.Count; i++)
             {
+                #region Get necessary coordinates and indices
+                int indexA = uniqueNodes.IndexOf(vertices[faces[i].A]);
+                int indexB = uniqueNodes.IndexOf(vertices[faces[i].B]);
+                int indexC = uniqueNodes.IndexOf(vertices[faces[i].C]);
+
+                Point3d verticeA = uniqueNodes[indexA];
+                Point3d verticeB = uniqueNodes[indexB];
+                Point3d verticeC = uniqueNodes[indexC];
+
+                int edgeIndex1 = edges.IndexOf(new Line(verticeA, verticeB));
+                if (edgeIndex1 == -1) { edgeIndex1 = edges.IndexOf(new Line(verticeB, verticeA)); }
+                int edgeIndex2 = edges.IndexOf(new Line(verticeB, verticeC));
+                if (edgeIndex2 == -1) { edgeIndex2 = edges.IndexOf(new Line(verticeC, verticeB)); }
+                int edgeIndex3 = edges.IndexOf(new Line(verticeC, verticeA));
+                if (edgeIndex3 == -1) { edgeIndex3 = edges.IndexOf(new Line(verticeA, verticeC)); }
+
+                double x1 = verticeA.X;
+                double x2 = verticeB.X;
+                double x3 = verticeC.X;
+
+                double y1 = verticeA.Y;
+                double y2 = verticeB.Y;
+                double y3 = verticeC.Y;
+
+                double z1 = verticeA.Z;
+                double z2 = verticeB.Z;
+                double z3 = verticeC.Z;
+                #endregion
+
+                #region Find tranformation matrix
+
+                // determine angles for tranformation matrix
+                double Lx = Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)));
+                double cosxX = -(x1 - x2) / Lx;
+                double cosxY = -(y1 - y2) / Lx;
+                double cosxZ = -(z1 - z2) / Lx;
+                double Ly = Math.Sqrt((Math.Pow(((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2) + Math.Pow(((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))), 2)));
+                double cosyX = ((y1 - y2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) + (z1 - z2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2))) / Ly;
+                double cosyY = -((x1 - x2) * ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) - (z1 - z2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Ly;
+                double cosyZ = -((x1 - x2) * ((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) + (y1 - y2) * ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2))) / Ly;
+                double Lz = Math.Sqrt((Math.Pow(((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)), 2) + Math.Pow(((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)), 2) + Math.Pow(((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)), 2)));
+                double coszX = ((y1 - y2) * (z1 - z3) - (y1 - y3) * (z1 - z2)) / Lz;
+                double coszY = -((x1 - x2) * (z1 - z3) - (x1 - x3) * (z1 - z2)) / Lz;
+                double coszZ = ((x1 - x2) * (y1 - y3) - (x1 - x3) * (y1 - y2)) / Lz;
+
+                // assembling nodal x,y,z tranformation matrix tf
+                Matrix<double> tf = Matrix<double>.Build.Dense(3, 3);
+                tf[0, 0] = cosxX;
+                tf[0, 1] = cosxY;
+                tf[0, 2] = cosxZ;
+                tf[1, 0] = cosyX;
+                tf[1, 1] = cosyY;
+                tf[1, 2] = cosyZ;
+                tf[2, 0] = coszX;
+                tf[2, 1] = coszY;
+                tf[2, 2] = coszZ;
+
+                Matrix<double> T_T = tf.Transpose();
+                Matrix<double> T_Temp = T_T.RemoveRow(2);
+                T_Temp = T_Temp.RemoveColumn(2);
+                Matrix<double> T_CST = T_Temp.DiagonalStack(T_Temp);
+                T_CST = T_CST.DiagonalStack(T_Temp);
+                Matrix<double> I = Matrix<double>.Build.DenseIdentity(3, 3);
+                Matrix<double> T_Morley = T_T.DiagonalStack(I);
+                #endregion
+
+                //Calculate the internal strains and stresses in each member
+                // m = -h^3/12 * C * Bk * v
+                // strain = -z * B_k * v
+                // 
+                // strain = B * v
+                // stress = C * strain
+
                 Matrix<double> CSTB = Matrix<double>.Build.Dense(3, 6);
                 Matrix<double> MorleyB = Matrix<double>.Build.Dense(3, 6);
                 for (int row = 0; row < 3; row++)
@@ -307,11 +369,15 @@ namespace Shell
                     Morleyv[j] = def[BOrder[i * 12 + 6 + j]];
                 }
 
+                CSTv = T_CST.Multiply(CSTv);
                 Vector<double> CSTstrains = CSTB.Multiply(CSTv);
+                Morleyv = T_Morley.Multiply(Morleyv);
                 Vector<double> Morleystrains = -t*0.5 * (MorleyB.Multiply(Morleyv));
 
                 Vector<double> CSTstress = C.Multiply(CSTstrains);
-                Vector < double > Morleystress = C.Multiply(Morleystrains);
+                //CSTstress = tf.Multiply(CSTstress);
+                //Vector < double > Morleystress = C.Multiply(Morleystrains);
+                Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
 
                 for (int j = 0; j < 3; j++)
                 {
@@ -339,21 +405,20 @@ namespace Shell
 
         private void CreateReducedGlobalStiffnessMatrix(Vector<double> bdc_value, Matrix<double> K, List<double> load, List<Point3d> uniqueNodes, Vector<double> nakededges, out Matrix<double> K_red, out Vector<double> load_red)
         {
-            int counter = 0;
             List<string> placements = new List<string>();
             int oldRC = load.Count;
-            int newRC = Convert.ToInt16(bdc_value.Sum());//-nakededges.Sum());
+            int newRC = Convert.ToInt16(bdc_value.Sum());
             K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
             load_red = Vector<double>.Build.Dense(newRC, 0);
             for (int i = 0, ii = 0; i < oldRC; i++)
             {
                 //is bdc_value in row i free?
-                if (bdc_value[i] == 1)// && nakededges[i] == 0)
+                if (bdc_value[i] == 1)
                 {                    
                     for (int j = 0, jj = 0; j < oldRC; j++)
                     {
                         //is bdc_value in col j free?
-                        if (bdc_value[j] == 1)// && nakededges[j] == 0)
+                        if (bdc_value[j] == 1)
                         {                                
                             //if yes, then add to new K
                             K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);
