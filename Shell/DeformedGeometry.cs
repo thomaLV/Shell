@@ -14,14 +14,18 @@ namespace Shell
     public class DeformedGeometry : GH_Component
     {
         public DeformedGeometry()
-          : base("DeformedGeometry", "DefG",
-              "Description",
+          : base("DeformedShell", "DefS",
+              "Displays the deformed shell, with or without coloring",
               "Koala", "Shell")
         {
         }
 
         //Initialize startcondition and polynomial order
         static bool startDef = true;
+        static bool setColor = false;
+        static bool X = false;
+        static bool Y = false;
+        static bool VonMisesButton = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setToggles(string s, bool i)
@@ -29,6 +33,22 @@ namespace Shell
             if (s == "Run")
             {
                 startDef = i;
+            }
+            if (s == "setColor")
+            {
+                setColor = i;
+            }
+            if (s == "X")
+            {
+                X = i;
+            }
+            if (s == "Y")
+            {
+                Y = i;
+            }
+            if (s == "VonMises")
+            {
+                VonMisesButton = i;
             }
         }
 
@@ -44,7 +64,6 @@ namespace Shell
             pManager.AddNumberParameter("VonMises Stress", "VM", "VonMises from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
             pManager.AddMeshParameter("Mesh", "M", "Input Geometry (Mesh format)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 10);
-            pManager.AddIntegerParameter("stressdirection", "strdir", "", GH_ParamAccess.item, 0);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -66,7 +85,6 @@ namespace Shell
                 List<Line> defGeometry = new List<Line>();
                 List<Point3d> defPoints = new List<Point3d>();
 
-                int dimension = 0;
                 int[] h = new int[] { 0, 0, 0 };
                 //Set expected inputs from Indata
                 if (!DA.GetDataList(0, def)) return;
@@ -74,7 +92,6 @@ namespace Shell
                 if (!DA.GetDataList(2, VonMises)) return;
                 if (!DA.GetData(3, ref mesh)) return;
                 if (!DA.GetData(4, ref scale)) return;
-                if (!DA.GetData(5, ref dimension)) return;
                 #endregion
 
                 #region Decompose Mesh and initiate the new deformed mesh defmesh
@@ -111,8 +128,22 @@ namespace Shell
                 defmesh.Vertices.AddVertices(new_vertices);
                 #endregion
 
+                int dimension = 123;
+                if (X)
+                {
+                    dimension = 0;
+                }
+                else if (Y)
+                {
+                    dimension = 1;
+                }
+                else if (VonMisesButton)
+                {
+                    dimension = 7;
+                }
+
                 Mesh coloredDefMesh = defmesh.DuplicateMesh();
-                if (stresses.Count > 1 || (stresses.Count == 1 && stresses[0] != 0) || VonMises.Count > 1 || (VonMises.Count == 1 && VonMises[0] != 0))
+                if (setColor && (stresses.Count > 1 || (stresses.Count == 1 && stresses[0] != 0) || VonMises.Count > 1 || (VonMises.Count == 1 && VonMises[0] != 0)) && (dimension < 8))
                 {
                     // Direction can be 0:x
                     SetMeshColors(defmesh, stresses, VonMises, new_vertices, faces, dimension, out coloredDefMesh);
@@ -128,25 +159,33 @@ namespace Shell
         {
             meshOut = meshIn.DuplicateMesh();
 
-            double max = 355;
-            double min = -355;
+            double max = 0;
+            double min = 0;
             List<int> R = new List<int>(faces.Count);
             List<int> G = new List<int>(faces.Count);
             List<int> B = new List<int>(faces.Count);
             int[,] facesConnectedToVertex = new int[faces.Count,3];
 
-            //for (int i = 0; i < stresses.Count / 6; i++)
-            //{
-            //    double stress = stresses[i * 6 + direction];
-            //    if (stress > max)
-            //    {
-            //        max = stress;
-            //    }
-            //    else if (stress < min)
-            //    {
-            //        min = stress;
-            //    }
-            //}
+            for (int i = 0; i < stresses.Count / 6; i++)
+            {
+                double stress;
+                if (direction < 6)
+                {
+                    stress = stresses[i * 6 + direction];
+                }
+                else
+                {
+                    stress = VonMises[i];
+                }
+                if (stress > max)
+                {
+                    max = stress;
+                }
+                else if (stress < min)
+                {
+                    min = stress;
+                }
+            }
 
             List<double> colorList = new List<double>();
 
@@ -266,12 +305,27 @@ namespace Shell
 
                 Rectangle rec0 = GH_Convert.ToRectangle(Bounds);
 
-                rec0.Height += 22;
+                if (setColor)
+                {
+                    rec0.Height += 82;
+                }
+                else
+                {
+                    rec0.Height += 22;
+                }
 
                 Rectangle rec1 = rec0;
                 rec1.X = rec0.Left + 1;
-                rec1.Y = rec0.Bottom - 22;
-                rec1.Width = (rec0.Width) / 3 + 1;
+                
+                if (setColor)
+                {
+                    rec1.Y = rec0.Bottom - 82;
+                }
+                else
+                {
+                    rec1.Y = rec0.Bottom - 22;
+                }
+                rec1.Width = (rec0.Width) / 2;
                 rec1.Height = 22;
                 rec1.Inflate(-2, -2);
 
@@ -279,16 +333,37 @@ namespace Shell
                 rec2.X = rec1.Right + 2;
 
                 Rectangle rec3 = rec2;
-                rec3.X = rec2.Right + 2;
+                rec3.X = rec2.X;
+                rec3.Y = rec2.Bottom + 2;
+
+                Rectangle rec4 = rec3;
+                rec4.X = rec3.X;
+                rec4.Y = rec3.Bottom + 2;
+
+                Rectangle rec5 = rec3;
+                rec5.X = rec4.X;
+                rec5.Y = rec4.Bottom + 2;
 
                 Bounds = rec0;
                 ButtonBounds = rec1;
+                ButtonBounds1 = rec2;
+                ButtonBounds2 = rec3;
+                ButtonBounds3 = rec4;
+                ButtonBounds4 = rec5;
 
             }
 
-            GH_Palette xColor = GH_Palette.Black;
+            GH_Palette displayed = GH_Palette.Black;
+            GH_Palette setcolor = GH_Palette.Grey;
+            GH_Palette xColor = GH_Palette.Grey;
+            GH_Palette yColor = GH_Palette.Grey;
+            GH_Palette VonMisesColor = GH_Palette.Grey;
 
             private Rectangle ButtonBounds { get; set; }
+            private Rectangle ButtonBounds1 { get; set; }
+            private Rectangle ButtonBounds2 { get; set; }
+            private Rectangle ButtonBounds3 { get; set; }
+            private Rectangle ButtonBounds4 { get; set; }
 
             protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
             {
@@ -298,14 +373,46 @@ namespace Shell
                     GH_Capsule button;
                     if (startDef == false)
                     {
-                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, GH_Palette.Grey, "Hidden", 3, 0);
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, displayed, "Hidden", 3, 0);
+                        button.Render(graphics, Selected, Owner.Locked, false);
+                        button.Dispose();
                     }
                     else
                     {
-                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, xColor, "Displayed", 3, 0);
+                        button = GH_Capsule.CreateTextCapsule(ButtonBounds, ButtonBounds, displayed, "Displayed", 3, 0);
+                        button.Render(graphics, Selected, Owner.Locked, false);
+                        button.Dispose();
                     }
-                    button.Render(graphics, Selected, false, false);
-                    button.Dispose();
+                    if (setColor == true)
+                    {
+                        GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds1, ButtonBounds1, setcolor, "Colored", 2, 0);
+                        button2.Render(graphics, Selected, Owner.Locked, false);
+                        button2.Dispose();
+                    }
+                    else
+                    {
+                        GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds1, ButtonBounds1, setcolor, "Uncolored", 2, 0);
+                        button2.Render(graphics, Selected, Owner.Locked, false);
+                        button2.Dispose();
+                    }
+                    if (setColor == true)
+                    {
+                        GH_Capsule button3 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, xColor, "X Stresses", 2, 0);
+                        button3.Render(graphics, Selected, Owner.Locked, false);
+                        button3.Dispose();
+                    }
+                    if (setColor == true)
+                    {
+                        GH_Capsule button4 = GH_Capsule.CreateTextCapsule(ButtonBounds3, ButtonBounds3, yColor, "Y Stresses", 2, 0);
+                        button4.Render(graphics, Selected, Owner.Locked, false);
+                        button4.Dispose();
+                    }
+                    if (setColor == true)
+                    {
+                        GH_Capsule button5 = GH_Capsule.CreateTextCapsule(ButtonBounds4, ButtonBounds4, VonMisesColor, "Von Mises", 2, 0);
+                        button5.Render(graphics, Selected, Owner.Locked, false);
+                        button5.Dispose();
+                    }
                 }
             }
 
@@ -317,12 +424,42 @@ namespace Shell
                     if (rec.Contains(e.CanvasLocation))
                     {
                         switchColor("Run");
-                        if (xColor == GH_Palette.Black) { DeformedGeometry.setToggles("Run", true); }
-                        if (xColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Run", false); }
-                        sender.Refresh();
-                        Owner.ExpireSolution(true);
-                        return GH_ObjectResponse.Handled;
                     }
+                    rec = ButtonBounds1;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("setColor");
+                    }
+                    rec = ButtonBounds2;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("X");
+                    }
+                    rec = ButtonBounds3;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("Y");
+                    }
+                    rec = ButtonBounds4;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("VonMises");
+                    }
+
+                    if (displayed == GH_Palette.Black) { DeformedGeometry.setToggles("Run", true); }
+                    if (displayed == GH_Palette.Grey) { DeformedGeometry.setToggles("Run", false); }
+                    if (setcolor == GH_Palette.Black) { DeformedGeometry.setToggles("setColor", true); }
+                    if (setcolor == GH_Palette.Grey) { DeformedGeometry.setToggles("setColor", false); }
+                    if (xColor == GH_Palette.Black) { DeformedGeometry.setToggles("X", true); }
+                    if (xColor == GH_Palette.Grey) { DeformedGeometry.setToggles("X", false); }
+                    if (yColor == GH_Palette.Black) { DeformedGeometry.setToggles("Y", true); }
+                    if (yColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Y", false); }
+                    if (VonMisesColor == GH_Palette.Black) { DeformedGeometry.setToggles("VonMises", true); }
+                    if (VonMisesColor == GH_Palette.Grey) { DeformedGeometry.setToggles("VonMises", false); }
+                    sender.Refresh();
+                    Owner.ExpireSolution(true);
+                    return GH_ObjectResponse.Handled;
+                    
                 }
                 return base.RespondToMouseDown(sender, e);
             }
@@ -331,8 +468,49 @@ namespace Shell
             {
                 if (button == "Run")
                 {
+                    if (displayed == GH_Palette.Black) { displayed = GH_Palette.Grey; }
+                    else { displayed = GH_Palette.Black; }
+                }
+                if (button == "setColor")
+                {
+                    if (setcolor == GH_Palette.Black)
+                    {
+                        setcolor = GH_Palette.Grey;
+                        xColor = GH_Palette.Grey;
+                        yColor = GH_Palette.Grey;
+                        VonMisesColor = GH_Palette.Grey;
+                    }
+                    else { setcolor = GH_Palette.Black; }
+                }
+                if (button == "X" && setcolor == GH_Palette.Black)
+                {
                     if (xColor == GH_Palette.Black) { xColor = GH_Palette.Grey; }
-                    else { xColor = GH_Palette.Black; }
+                    else
+                    {
+                        xColor = GH_Palette.Black;
+                        yColor = GH_Palette.Grey;
+                        VonMisesColor = GH_Palette.Grey;
+                    }
+                }
+                if (button == "Y" && setcolor == GH_Palette.Black)
+                {
+                    if (yColor == GH_Palette.Black) { yColor = GH_Palette.Grey; }
+                    else
+                    {
+                        yColor = GH_Palette.Black;
+                        xColor = GH_Palette.Grey;
+                        VonMisesColor = GH_Palette.Grey;
+                    }
+                }
+                if (button == "VonMises" && setcolor == GH_Palette.Black)
+                {
+                    if (VonMisesColor == GH_Palette.Black) { VonMisesColor = GH_Palette.Grey; }
+                    else
+                    {
+                        VonMisesColor = GH_Palette.Black;
+                        xColor = GH_Palette.Grey;
+                        yColor = GH_Palette.Grey;
+                    }
                 }
             }
         }

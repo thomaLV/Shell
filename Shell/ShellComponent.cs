@@ -40,10 +40,10 @@ namespace Shell
 
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
-            pManager.AddMeshParameter("IsoMesh", "IM", "The shell 6-node element isoparametric mesh, made by IsoMesher component", GH_ParamAccess.item);
+            pManager.AddMeshParameter("Mesh", "M", "The Meshed shell structure", GH_ParamAccess.item);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E,v,t,G", GH_ParamAccess.item, "210000,0.3,10");
-            pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
+            pManager.AddTextParameter("Material Properties", "Mat", "Material Properties: E,v,t,G", GH_ParamAccess.item, "210000,0.3,10");
+            pManager.AddTextParameter("Point Loads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -232,7 +232,7 @@ namespace Shell
 
                 //Calculate deformations
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
-                    watch.Start();
+                watch.Start();
                 def_reduced = K_red.Cholesky().Solve(load_red);
                 watch.Stop();
                     timer = watch.ElapsedMilliseconds - timer;
@@ -479,7 +479,7 @@ namespace Shell
                         if (bdc_value[j] == 1)
                         {                                
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = Math.Round(K[i, j], 4);
+                            K_red[i - ii, j - jj] = (K[i, j]);
                         }
                         else
                         {
