@@ -51,9 +51,7 @@ namespace Shell
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Von Mises stresses", "VonM", "The Von Mises Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            //pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
             pManager.AddTextParameter("part timer", "", "", GH_ParamAccess.item);
         }
 
@@ -158,20 +156,14 @@ namespace Shell
 
             //Interpret and set material parameters
             double E;       //Material Young's modulus, initial value 210000 [MPa]
-            //double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-            //double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-            //double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-            //double J;       //Polar moment of inertia
             double G;       //Shear modulus, initial value 79300 [mm^4]
             double nu;      //Poisson's ratio, initially 0.3
             double t;       //Thickness of shell
-            //SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu, out t);
             SetMaterial(mattxt, out E, out G, out nu, out t);
 
             Vector<double> def_tot;
             Vector<double> reactions;
             Vector<double> internalStresses;
-            Vector<double> VonMises;
             Vector<double> internalStrains;
 
             #region Prepares boundary conditions and loads for calculation
@@ -245,7 +237,7 @@ namespace Shell
                 reactions = K_tot.Multiply(def_tot);
 
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
-                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains, out VonMises);
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains);
 
                 #endregion
             }
@@ -255,25 +247,21 @@ namespace Shell
                 reactions = def_tot;
 
                 internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
-                VonMises = Vector<double>.Build.Dense(bdc_value.Count);
                 internalStrains = internalStresses;
             }
 
             DA.SetDataList(0, def_tot);
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
-            DA.SetDataList(3, VonMises);
-            DA.SetDataList(4, internalStrains);
-            //DA.SetDataList(4, edges);           
-            DA.SetData(5, time.ToString());
+            DA.SetDataList(3, internalStrains);
+            DA.SetData(4, time.ToString());
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains, out Vector<double> VonMises)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
         {
             //preallocating lists
             internalStresses = Vector<double>.Build.Dense(faces.Count*6);
             internalStrains = Vector<double>.Build.Dense(faces.Count*6);
-            VonMises = Vector<double>.Build.Dense(faces.Count);
             Matrix <double> C = Matrix<double>.Build.Dense(3, 3);
             C[0, 0] = 1;
             C[0, 1] = nu;
@@ -427,15 +415,6 @@ namespace Shell
                 //Vector < double > Morleystress = C.Multiply(Morleystrains);
                 Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
                 Morleystress = tf.Multiply(Morleystress);
-
-                #region Von Mises
-                double sigma11 = CSTstress[0];
-                double sigma22 = CSTstress[1];
-                double sigma12 = CSTstress[2];
-
-                VonMises[i] = Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12);
-
-                #endregion
 
                 for (int j = 0; j < 3; j++)
                 {
@@ -1089,7 +1068,7 @@ namespace Shell
             }
             else
             {
-                G = 1.0 / (2.0 * (1.0 + nu));
+                G = E / (2.0 * (1.0 + nu));
             }
             
         }

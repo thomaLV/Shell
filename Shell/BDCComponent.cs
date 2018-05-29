@@ -148,6 +148,7 @@ namespace Shell
                 List<List<int>> mIndices = GetMeshIndices(pointList, faces, vertices);
                 for (int i = 0; i < pointList.Count; i++)
                 {
+                    if (mIndices.Count == 0) { break; }
                     int facenum = -1;
                     if (mIndices[i].Count == 1)
                     {

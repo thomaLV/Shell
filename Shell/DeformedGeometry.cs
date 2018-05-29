@@ -61,7 +61,6 @@ namespace Shell
         {
             pManager.AddNumberParameter("Deformation", "Def", "Deformations from ShellCalc", GH_ParamAccess.list);
             pManager.AddNumberParameter("Stresses", "Stress", "Stresses from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
-            pManager.AddNumberParameter("VonMises Stress", "VM", "VonMises from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
             pManager.AddMeshParameter("Mesh", "M", "Input Geometry (Mesh format)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 10);
         }
@@ -89,9 +88,8 @@ namespace Shell
                 //Set expected inputs from Indata
                 if (!DA.GetDataList(0, def)) return;
                 if (!DA.GetDataList(1, stresses)) return;
-                if (!DA.GetDataList(2, VonMises)) return;
-                if (!DA.GetData(3, ref mesh)) return;
-                if (!DA.GetData(4, ref scale)) return;
+                if (!DA.GetData(2, ref mesh)) return;
+                if (!DA.GetData(3, ref scale)) return;
                 #endregion
 
                 #region Decompose Mesh and initiate the new deformed mesh defmesh
@@ -140,6 +138,17 @@ namespace Shell
                 else if (VonMisesButton)
                 {
                     dimension = 7;
+                    #region Von Mises
+                    for (int j = 0; j < faces.Count; j++)
+                    {
+                        double sigma11 = stresses[j*6];
+                        double sigma22 = stresses[j*6+1];
+                        double sigma12 = stresses[j*6+2];
+
+                        VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
+                    }
+                    
+                    #endregion
                 }
 
                 Mesh coloredDefMesh = defmesh.DuplicateMesh();
