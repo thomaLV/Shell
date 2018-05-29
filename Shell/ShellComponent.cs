@@ -51,8 +51,9 @@ namespace Shell
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
             pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Von Mises stresses", "VonM", "The Von Mises Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
+            //pManager.AddLineParameter("Edges", "edges", "", GH_ParamAccess.list);
             pManager.AddTextParameter("part timer", "", "", GH_ParamAccess.item);
         }
 
@@ -170,6 +171,7 @@ namespace Shell
             Vector<double> def_tot;
             Vector<double> reactions;
             Vector<double> internalStresses;
+            Vector<double> VonMises;
             Vector<double> internalStrains;
 
             #region Prepares boundary conditions and loads for calculation
@@ -243,7 +245,7 @@ namespace Shell
                 reactions = K_tot.Multiply(def_tot);
 
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
-                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains);
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains, out VonMises);
 
                 #endregion
             }
@@ -253,23 +255,26 @@ namespace Shell
                 reactions = def_tot;
 
                 internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                VonMises = Vector<double>.Build.Dense(bdc_value.Count);
                 internalStrains = internalStresses;
             }
 
             DA.SetDataList(0, def_tot);
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
-            DA.SetDataList(3, internalStrains);
-            DA.SetDataList(4, edges);           
+            DA.SetDataList(3, VonMises);
+            DA.SetDataList(4, internalStrains);
+            //DA.SetDataList(4, edges);           
             DA.SetData(5, time.ToString());
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains, out Vector<double> VonMises)
         {
             //preallocating lists
             internalStresses = Vector<double>.Build.Dense(faces.Count*6);
             internalStrains = Vector<double>.Build.Dense(faces.Count*6);
-            Matrix<double> C = Matrix<double>.Build.Dense(3, 3);
+            VonMises = Vector<double>.Build.Dense(faces.Count);
+            Matrix <double> C = Matrix<double>.Build.Dense(3, 3);
             C[0, 0] = 1;
             C[0, 1] = nu;
             C[1, 0] = nu;
@@ -341,7 +346,7 @@ namespace Shell
                 T = T.DiagonalStack(tf);
                 Matrix<double> one = Matrix<double>.Build.DenseIdentity(3, 3);
                 T = T.DiagonalStack(one);
-
+                Matrix<double> T_T = T.Transpose();
 
                 //Matrix<double> T_T = tf.Transpose();
                 //Matrix<double> T_Temp = T_T.RemoveRow(2);
@@ -397,7 +402,7 @@ namespace Shell
 
                 cstc = 0;
                 morleyc = 0;
-                Vector<double> vlocal = T.Multiply(v);
+                Vector<double> vlocal = T_T.Multiply(v);
                 for (int ii = 0; ii < 11; ii++)
                 {
                     if (ii > 8 || ii==2 || ii==5 || ii==8)
@@ -421,6 +426,16 @@ namespace Shell
                 //CSTstress = tf.Multiply(CSTstress);
                 //Vector < double > Morleystress = C.Multiply(Morleystrains);
                 Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
+                Morleystress = tf.Multiply(Morleystress);
+
+                #region Von Mises
+                double sigma11 = CSTstress[0];
+                double sigma22 = CSTstress[1];
+                double sigma12 = CSTstress[2];
+
+                VonMises[i] = Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12);
+
+                #endregion
 
                 for (int j = 0; j < 3; j++)
                 {

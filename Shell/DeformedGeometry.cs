@@ -40,7 +40,8 @@ namespace Shell
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformation", "Def", "Deformations from ShellCalc", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Stresses", "Stress", "Stresses from ShellCalc", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Stresses", "Stress", "Stresses from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
+            pManager.AddNumberParameter("VonMises Stress", "VM", "VonMises from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
             pManager.AddMeshParameter("Mesh", "M", "Input Geometry (Mesh format)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 10);
             pManager.AddIntegerParameter("stressdirection", "strdir", "", GH_ParamAccess.item, 0);
@@ -59,19 +60,21 @@ namespace Shell
                 //Expected inputs and outputs
                 List<double> def = new List<double>();
                 List<double> stresses = new List<double>();
+                List<double> VonMises = new List<double>();
                 Mesh mesh = new Mesh();
                 double scale = 10;
                 List<Line> defGeometry = new List<Line>();
                 List<Point3d> defPoints = new List<Point3d>();
 
                 int dimension = 0;
-
+                int[] h = new int[] { 0, 0, 0 };
                 //Set expected inputs from Indata
                 if (!DA.GetDataList(0, def)) return;
                 if (!DA.GetDataList(1, stresses)) return;
-                if (!DA.GetData(2, ref mesh)) return;
-                if (!DA.GetData(3, ref scale)) return;
-                if (!DA.GetData(4, ref dimension)) return;
+                if (!DA.GetDataList(2, VonMises)) return;
+                if (!DA.GetData(3, ref mesh)) return;
+                if (!DA.GetData(4, ref scale)) return;
+                if (!DA.GetData(5, ref dimension)) return;
                 #endregion
 
                 #region Decompose Mesh and initiate the new deformed mesh defmesh
@@ -106,47 +109,59 @@ namespace Shell
                 }
 
                 defmesh.Vertices.AddVertices(new_vertices);
-
-                Mesh coloredDefMesh = defmesh.DuplicateMesh();
-                // Direction can be 0:x
-                SetMeshColors(defmesh, stresses, new_vertices, faces, dimension, out coloredDefMesh); 
-
                 #endregion
 
+                Mesh coloredDefMesh = defmesh.DuplicateMesh();
+                if (stresses.Count > 1 || (stresses.Count == 1 && stresses[0] != 0) || VonMises.Count > 1 || (VonMises.Count == 1 && VonMises[0] != 0))
+                {
+                    // Direction can be 0:x
+                    SetMeshColors(defmesh, stresses, VonMises, new_vertices, faces, dimension, out coloredDefMesh);
+                }
+                 
+                
                 //Set output data
                 DA.SetData(0, coloredDefMesh);
             }
         }   //End of main program
 
-        private void SetMeshColors(Mesh meshIn, List<double> stresses, List<Point3d> vertices, List<MeshFace> faces, int direction, out Mesh meshOut)
+        private void SetMeshColors(Mesh meshIn, List<double> stresses, List<double> VonMises, List<Point3d> vertices, List<MeshFace> faces, int direction, out Mesh meshOut)
         {
             meshOut = meshIn.DuplicateMesh();
 
-            double max = 0;
-            double min = 0;
+            double max = 355;
+            double min = -355;
             List<int> R = new List<int>(faces.Count);
             List<int> G = new List<int>(faces.Count);
             List<int> B = new List<int>(faces.Count);
             int[,] facesConnectedToVertex = new int[faces.Count,3];
 
-            for (int i = 0; i < stresses.Count / 6; i++)
-            {
-                double stress = stresses[i * 6 + direction];
-                if (stress > max)
-                {
-                    max = stress;
-                }
-                else if (stress < min)
-                {
-                    min = stress;
-                }
-            }
+            //for (int i = 0; i < stresses.Count / 6; i++)
+            //{
+            //    double stress = stresses[i * 6 + direction];
+            //    if (stress > max)
+            //    {
+            //        max = stress;
+            //    }
+            //    else if (stress < min)
+            //    {
+            //        min = stress;
+            //    }
+            //}
 
             List<double> colorList = new List<double>();
 
             for (int i = 0; i < faces.Count; i++)
             {
-                double stress = stresses[i*6+direction];
+                double stress;
+                if (direction < 6)
+                {
+                    stress = stresses[i*6+direction];
+                }
+                else
+                {
+                    stress = VonMises[i];
+                }
+                
 
                 R.Add(0);
                 G.Add(0);
