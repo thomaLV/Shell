@@ -122,26 +122,26 @@ namespace Shell
         {
             meshOut = meshIn.DuplicateMesh();
 
-            double max = 355;
-            double min = -355;
+            double max = 0;
+            double min = 0;
             List<int> R = new List<int>(faces.Count);
             List<int> G = new List<int>(faces.Count);
             List<int> B = new List<int>(faces.Count);
             int[,] facesConnectedToVertex = new int[faces.Count,3];
 
-            //for (int i = 0; i < stresses.Count/6; i++)
-            //{
-            //    double stress = stresses[i * 6 + direction];
-            //    if (stress > max)
-            //    {
-            //        max = stress;
-            //    }
-            //    else if (stress < min)
-            //    {
-            //        min = stress;
-            //    }
-            //}
-            
+            for (int i = 0; i < stresses.Count / 6; i++)
+            {
+                double stress = stresses[i * 6 + direction];
+                if (stress > max)
+                {
+                    max = stress;
+                }
+                else if (stress < min)
+                {
+                    min = stress;
+                }
+            }
+
             List<double> colorList = new List<double>();
 
             for (int i = 0; i < faces.Count; i++)
@@ -152,14 +152,14 @@ namespace Shell
                 G.Add(0);
                 B.Add(0);
 
-                if (stress > max)
+                if (stress >= max)
                 {
                     R[i] = 255;
                 }
                 else if (stress >= max*0.5 && max != 0)
                 {
                     R[i] = 255;
-                    G[i] = Convert.ToInt32(Math.Round(255 * (stress - max * 0.5) / (max * 0.5)));
+                    G[i] = Convert.ToInt32(Math.Round(255 * (1 - (stress - max * 0.5) / (max * 0.5))));
                 }
                 else if (stress < max*0.5 && stress >= 0 && max != 0)
                 {
@@ -174,9 +174,9 @@ namespace Shell
                 else if (stress <= min*0.5 && min != 0 && stress > min)
                 {
                     B[i] = 255;
-                    G[i] = Convert.ToInt32(Math.Round(255 * (stress - min*0.5) / (min * 0.5)));
+                    G[i] = Convert.ToInt32(Math.Round(255 * (1 - (stress - min * 0.5) / (min * 0.5))));
                 }
-                else if (stress < min)
+                else if (stress <= min)
                 {
                     B[i] = 255;
                 }

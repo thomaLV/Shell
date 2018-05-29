@@ -42,7 +42,7 @@ namespace Shell
         {
             pManager.AddMeshParameter("IsoMesh", "IM", "The shell 6-node element isoparametric mesh, made by IsoMesher component", GH_ParamAccess.item);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material properties", "Mat", "Material Properties", GH_ParamAccess.item, "210000,3600,4920000,4920000,79300,0.3,10");
+            pManager.AddTextParameter("Material properties", "Mat", "Material Properties: E,v,t,G", GH_ParamAccess.item, "210000,0.3,10");
             pManager.AddTextParameter("PointLoads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
         }
 
@@ -157,14 +157,15 @@ namespace Shell
 
             //Interpret and set material parameters
             double E;       //Material Young's modulus, initial value 210000 [MPa]
-            double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
-            double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
-            double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
-            double J;       //Polar moment of inertia
+            //double A;       //Area for each element in same order as geometry, initial value CFS100x100 3600 [mm^2]
+            //double Iy;      //Moment of inertia about local y axis, initial value 4.92E6 [mm^4]
+            //double Iz;      //Moment of inertia about local z axis, initial value 4.92E6 [mm^4]
+            //double J;       //Polar moment of inertia
             double G;       //Shear modulus, initial value 79300 [mm^4]
             double nu;      //Poisson's ratio, initially 0.3
             double t;       //Thickness of shell
-            SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu, out t);
+            //SetMaterial(mattxt, out E, out A, out Iy, out Iz, out J, out G, out nu, out t);
+            SetMaterial(mattxt, out E, out G, out nu, out t);
 
             Vector<double> def_tot;
             Vector<double> reactions;
@@ -207,7 +208,8 @@ namespace Shell
             Matrix<double> B; // all B_k matrices collected
             List<int> BOrder; // 
             Matrix<double> K_tot;
-            GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, A, Iy, Iz, J, G, nu, t, out K_tot, out B, out BOrder);
+            //GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, A, Iy, Iz, J, G, nu, t, out K_tot, out B, out BOrder);
+            GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, G, nu, t, out K_tot, out B, out BOrder);
             watch.Stop();
             timer = watch.ElapsedMilliseconds - timer;
             time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
@@ -335,23 +337,22 @@ namespace Shell
                 tf[2, 1] = coszY;
                 tf[2, 2] = coszZ;
 
-                Matrix<double> T_T = tf.Transpose();
-                Matrix<double> T_Temp = T_T.RemoveRow(2);
-                T_Temp = T_Temp.RemoveColumn(2);
-                Matrix<double> T_CST = T_Temp.DiagonalStack(T_Temp);
-                T_CST = T_CST.DiagonalStack(T_Temp);
-                Matrix<double> I = Matrix<double>.Build.DenseIdentity(3, 3);
-                Matrix<double> T_Morley = T_T.DiagonalStack(I);
+                Matrix<double> T = tf.DiagonalStack(tf);
+                T = T.DiagonalStack(tf);
+                Matrix<double> one = Matrix<double>.Build.DenseIdentity(3, 3);
+                T = T.DiagonalStack(one);
+
+
+                //Matrix<double> T_T = tf.Transpose();
+                //Matrix<double> T_Temp = T_T.RemoveRow(2);
+                //T_Temp = T_Temp.RemoveColumn(2);
+                //Matrix<double> T_CST = T_Temp.DiagonalStack(T_Temp);
+                //T_CST = T_CST.DiagonalStack(T_Temp);
+                //Matrix<double> I = Matrix<double>.Build.DenseIdentity(3, 3);
+                //Matrix<double> T_Morley = T_T.DiagonalStack(I);
                 #endregion
 
-                //Calculate the internal strains and stresses in each member
-                // m = -h^3/12 * C * Bk * v
-                // strain = -z * B_k * v
-                // 
-                // strain = B * v
-                // stress = C * strain
-
-                Matrix<double> CSTB = Matrix<double>.Build.Dense(3, 6);
+                Matrix < double> CSTB = Matrix<double>.Build.Dense(3, 6);
                 Matrix<double> MorleyB = Matrix<double>.Build.Dense(3, 6);
                 for (int row = 0; row < 3; row++)
                 {
@@ -369,12 +370,54 @@ namespace Shell
                     Morleyv[j] = def[BOrder[i * 12 + 6 + j]];
                 }
 
-                CSTv = T_CST.Multiply(CSTv);
-                Vector<double> CSTstrains = CSTB.Multiply(CSTv);
-                Morleyv = T_Morley.Multiply(Morleyv);
-                Vector<double> Morleystrains = -t*0.5 * (MorleyB.Multiply(Morleyv));
+                Vector<double> v = Vector<double>.Build.Dense(12);
+                int cstc = 0;
+                int morleyc = 0;
+                for (int ii = 0; ii < 11; ii++)
+                {
+                    if (ii < 9)
+                    {
+                        if (ii == 2 || ii == 5 || ii == 8)
+                        {
+                            v[ii] = Morleyv[morleyc];
+                            morleyc++;
+                        }
+                        else
+                        {
+                            v[ii] = CSTv[cstc];
+                            cstc++;
+                        }
+                    }
+                    else
+                    {
+                        v[ii] = Morleyv[morleyc];
+                        morleyc++;
+                    }
+                }
 
-                Vector<double> CSTstress = C.Multiply(CSTstrains);
+                cstc = 0;
+                morleyc = 0;
+                Vector<double> vlocal = T.Multiply(v);
+                for (int ii = 0; ii < 11; ii++)
+                {
+                    if (ii > 8 || ii==2 || ii==5 || ii==8)
+                    {
+                        Morleyv[morleyc] = vlocal[ii];
+                        morleyc++;
+                    }
+                    else
+                    {
+                        CSTv[cstc] = vlocal[ii];
+                        cstc++;
+                    }
+                }
+
+                //CSTv = T_CST.Multiply(CSTv);
+                Vector<double> CSTstrains = CSTB.Multiply(CSTv);
+                //Morleyv = T_Morley.Multiply(Morleyv);
+                Vector<double> Morleystrains = -t * 0.5 * (MorleyB.Multiply(Morleyv));
+
+                Vector <double> CSTstress = C.Multiply(CSTstrains);
                 //CSTstress = tf.Multiply(CSTstress);
                 //Vector < double > Morleystress = C.Multiply(Morleystrains);
                 Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
@@ -451,13 +494,13 @@ namespace Shell
             }
         }
 
-        private void GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Line> edges, List<Point3d> uniqueNodes, int gdofs, double E, double A, double Iy, double Iz, double J, double G, double nu, double t, out Matrix<double> KG, out Matrix<double> B, out List<int> BDefOrder )
-        {         
+        private void GlobalStiffnessMatrix(List<MeshFace> faces, List<Point3d> vertices, List<Line> edges, List<Point3d> uniqueNodes, int gdofs, double E, double G, double nu, double t, out Matrix<double> KG, out Matrix<double> B, out List<int> BDefOrder)
+        {
             int NoOfFaces = faces.Count;
             int nodeDofs = uniqueNodes.Count * 3;
 
             // Want to keep the B matrices for later calculations, we also should keep the indices for nodes and edges for speed
-            B = Matrix<double>.Build.Dense(NoOfFaces*6, 6);
+            B = Matrix<double>.Build.Dense(NoOfFaces * 6, 6);
             BDefOrder = new List<int>(NoOfFaces * 6);
             int Bcount = 0;
 
@@ -466,7 +509,7 @@ namespace Shell
             foreach (var face in faces)
             {
                 int indexA = uniqueNodes.IndexOf(vertices[face.A]);
-                int indexB = uniqueNodes.IndexOf(vertices[face.B]); 
+                int indexB = uniqueNodes.IndexOf(vertices[face.B]);
                 int indexC = uniqueNodes.IndexOf(vertices[face.C]);
 
                 Point3d verticeA = uniqueNodes[indexA];
@@ -505,7 +548,7 @@ namespace Shell
                 B.SetSubMatrix(Bcount * 6, 0, Be);
                 Bcount++;
                 BDefOrder.AddRange(new int[] { indexA * 3, indexA * 3 + 1, indexB * 3, indexB * 3 + 1, indexC * 3, indexC * 3 + 1, indexA * 3 + 2, indexB * 3 + 2, indexC * 3 + 2, nodeDofs + eindx[0], nodeDofs + eindx[1], nodeDofs + eindx[2] });
-                        
+
                 for (int row = 0; row < 3; row++)
                 {
                     for (int col = 0; col < 3; col++)
@@ -1019,18 +1062,21 @@ namespace Shell
             return bdc_value;
         }
 
-        private void SetMaterial(string mattxt, out double E, out double A, out double Iy, out double Iz, out double J, out double G, out double nu, out double t)
+        private void SetMaterial(string mattxt, out double E, out double G, out double nu, out double t)
         {
             string[] matProp = (mattxt.Split(','));
-
             E = (Math.Round(double.Parse(matProp[0]), 2));
-            A = (Math.Round(double.Parse(matProp[1]), 2));
-            Iy = (Math.Round(double.Parse(matProp[2]), 2));
-            Iz = (Math.Round(double.Parse(matProp[3]), 2));
-            G = (Math.Round(double.Parse(matProp[4]), 2));
-            nu = (Math.Round(double.Parse(matProp[5]), 3));
-            t = (Math.Round(double.Parse(matProp[6]), 2));
-            J = Iy + Iz;
+            nu = (Math.Round(double.Parse(matProp[1]), 3));
+            t = (Math.Round(double.Parse(matProp[2]), 2));
+            if (matProp.GetLength(0) == 4)
+            {
+                G = (Math.Round(double.Parse(matProp[3]), 2));
+            }
+            else
+            {
+                G = 1.0 / (2.0 * (1.0 + nu));
+            }
+            
         }
 
         protected override System.Drawing.Bitmap Icon
