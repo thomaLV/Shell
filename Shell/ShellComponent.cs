@@ -49,10 +49,10 @@ namespace Shell
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddNumberParameter("Deformations", "Def", "Deformations", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Reactions", "R", "Reaction Forces", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Element stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
-            pManager.AddNumberParameter("Element strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddTextParameter("part timer", "", "", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Reaction Forces", "R", "Reaction Forces", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Element Stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
+            pManager.AddNumberParameter("Element Strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
+            pManager.AddTextParameter("Part Timer", "", "", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -309,7 +309,7 @@ namespace Shell
 
                 #region Find tranformation matrix
 
-                // determine angles for tranformation matrix
+                // determine direction cosines for tranformation matrix
                 double Lx = Math.Sqrt((Math.Pow((x1 - x2), 2) + Math.Pow((y1 - y2), 2) + Math.Pow((z1 - z2), 2)));
                 double cosxX = -(x1 - x2) / Lx;
                 double cosxY = -(y1 - y2) / Lx;
@@ -338,19 +338,12 @@ namespace Shell
                 Matrix<double> T = tf.DiagonalStack(tf);
                 T = T.DiagonalStack(tf);
                 Matrix<double> one = Matrix<double>.Build.DenseIdentity(3, 3);
-                T = T.DiagonalStack(one);
+                T = T.DiagonalStack(one); // rotations are not transformed
                 Matrix<double> T_T = T.Transpose();
-
-                //Matrix<double> T_T = tf.Transpose();
-                //Matrix<double> T_Temp = T_T.RemoveRow(2);
-                //T_Temp = T_Temp.RemoveColumn(2);
-                //Matrix<double> T_CST = T_Temp.DiagonalStack(T_Temp);
-                //T_CST = T_CST.DiagonalStack(T_Temp);
-                //Matrix<double> I = Matrix<double>.Build.DenseIdentity(3, 3);
-                //Matrix<double> T_Morley = T_T.DiagonalStack(I);
                 #endregion
 
-                Matrix < double> CSTB = Matrix<double>.Build.Dense(3, 6);
+                #region Extract B matrices fro CST and Morley
+                Matrix< double> CSTB = Matrix<double>.Build.Dense(3, 6);
                 Matrix<double> MorleyB = Matrix<double>.Build.Dense(3, 6);
                 for (int row = 0; row < 3; row++)
                 {
@@ -360,6 +353,11 @@ namespace Shell
                         MorleyB[row, col] = B[row + 3 + 6 * i, col];
                     }
                 }
+                //CSTB = B.SubMatrix(6 * i, 3, 0, 6);
+                //CSTB = B.SubMatrix(6 * i + 3, 3, 0, 6);
+                #endregion
+
+                #region Extract displacement/rotations corresponding to B matrices
                 Vector<double> CSTv = Vector<double>.Build.Dense(6);
                 Vector<double> Morleyv = Vector<double>.Build.Dense(6);
                 for (int j = 0; j < 6; j++)
@@ -367,60 +365,66 @@ namespace Shell
                     CSTv[j] = def[BOrder[i * 12 + j]];
                     Morleyv[j] = def[BOrder[i * 12 + 6 + j]];
                 }
+                #endregion
 
+                #region Sort the displacements/rotations to use the tranformation matrix
                 Vector<double> v = Vector<double>.Build.Dense(12);
                 int cstc = 0;
                 int morleyc = 0;
-                for (int ii = 0; ii < 11; ii++)
+                for (int k = 0; k < 11; k++)
                 {
-                    if (ii < 9)
+                    if (k < 9)
                     {
-                        if (ii == 2 || ii == 5 || ii == 8)
+                        if (k == 2 || k == 5 || k == 8)
                         {
-                            v[ii] = Morleyv[morleyc];
+                            v[k] = Morleyv[morleyc];
                             morleyc++;
                         }
                         else
                         {
-                            v[ii] = CSTv[cstc];
+                            v[k] = CSTv[cstc];
                             cstc++;
                         }
                     }
                     else
                     {
-                        v[ii] = Morleyv[morleyc];
+                        v[k] = Morleyv[morleyc];
                         morleyc++;
                     }
                 }
+                #endregion
 
+                // Transform global deformations to local deformations
+                Vector<double> vlocal = T_T.Multiply(v);
+
+                #region Sort the (now local) dofs vlocal and separate CST and Morley dofs
                 cstc = 0;
                 morleyc = 0;
-                Vector<double> vlocal = T_T.Multiply(v);
-                for (int ii = 0; ii < 11; ii++)
+                for (int k = 0; k < 11; k++)
                 {
-                    if (ii > 8 || ii==2 || ii==5 || ii==8)
+                    if (k==2 || k==5 || k==8 || k > 8)
                     {
-                        Morleyv[morleyc] = vlocal[ii];
+                        Morleyv[morleyc] = vlocal[k];
                         morleyc++;
                     }
                     else
                     {
-                        CSTv[cstc] = vlocal[ii];
+                        CSTv[cstc] = vlocal[k];
                         cstc++;
                     }
                 }
+                #endregion
 
-                //CSTv = T_CST.Multiply(CSTv);
+                // Calculate CST strain and stress
                 Vector<double> CSTstrains = CSTB.Multiply(CSTv);
-                //Morleyv = T_Morley.Multiply(Morleyv);
-                Vector<double> Morleystrains = -t * 0.5 * (MorleyB.Multiply(Morleyv));
+                Vector<double> CSTstress = C.Multiply(CSTstrains);
 
-                Vector <double> CSTstress = C.Multiply(CSTstrains);
-                //CSTstress = tf.Multiply(CSTstress);
-                //Vector < double > Morleystress = C.Multiply(Morleystrains);
+                // Calculate Morley strain and stress
+                Vector<double> Morleystrains = -t * 0.5 * (MorleyB.Multiply(Morleyv));
                 Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
-                Morleystress = tf.Multiply(Morleystress);
-                CSTstress = tf.Multiply(CSTstress);
+
+                //Morleystress = tf.Multiply(Morleystress);
+                //CSTstress = tf.Multiply(CSTstress);
 
                 for (int j = 0; j < 3; j++)
                 {
