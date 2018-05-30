@@ -63,6 +63,7 @@ namespace Shell
             pManager.AddNumberParameter("Stresses", "Stress", "Stresses from ShellCalc", GH_ParamAccess.list, new List<double> { 0 });
             pManager.AddMeshParameter("Mesh", "M", "Input Geometry (Mesh format)", GH_ParamAccess.item);
             pManager.AddNumberParameter("Scale", "S", "The Scale Factor for Deformation", GH_ParamAccess.item, 10);
+            pManager.AddNumberParameter("Yield Strength", "YieldS", "The Yield Strength in MPa", GH_ParamAccess.list, new List<double> { 0, 0 });
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -81,6 +82,7 @@ namespace Shell
                 List<double> VonMises = new List<double>();
                 Mesh mesh = new Mesh();
                 double scale = 10;
+                List<double> yieldStrength = new List<double>();
                 List<Line> defGeometry = new List<Line>();
                 List<Point3d> defPoints = new List<Point3d>();
 
@@ -90,6 +92,7 @@ namespace Shell
                 if (!DA.GetDataList(1, stresses)) return;
                 if (!DA.GetData(2, ref mesh)) return;
                 if (!DA.GetData(3, ref scale)) return;
+                if (!DA.GetDataList(4, yieldStrength)) return;
                 #endregion
 
                 #region Decompose Mesh and initiate the new deformed mesh defmesh
@@ -155,7 +158,7 @@ namespace Shell
                 if (setColor && (stresses.Count > 1 || (stresses.Count == 1 && stresses[0] != 0) || VonMises.Count > 1 || (VonMises.Count == 1 && VonMises[0] != 0)) && (dimension < 8))
                 {
                     // Direction can be 0:x
-                    SetMeshColors(defmesh, stresses, VonMises, new_vertices, faces, dimension, out coloredDefMesh);
+                    SetMeshColors(defmesh, stresses, VonMises, new_vertices, faces, dimension, yieldStrength, out coloredDefMesh);
                 }
                  
                 
@@ -164,37 +167,61 @@ namespace Shell
             }
         }   //End of main program
 
-        private void SetMeshColors(Mesh meshIn, List<double> stresses, List<double> VonMises, List<Point3d> vertices, List<MeshFace> faces, int direction, out Mesh meshOut)
+        private void SetMeshColors(Mesh meshIn, List<double> stresses, List<double> VonMises, List<Point3d> vertices, List<MeshFace> faces, int direction, List<double> yieldStrength, out Mesh meshOut)
         {
             meshOut = meshIn.DuplicateMesh();
 
-            double max = 0;
-            double min = 0;
             List<int> R = new List<int>(faces.Count);
             List<int> G = new List<int>(faces.Count);
             List<int> B = new List<int>(faces.Count);
             int[,] facesConnectedToVertex = new int[faces.Count,3];
 
-            for (int i = 0; i < stresses.Count / 6; i++)
+            double max = 0;
+            double min = 0;
+
+            if (yieldStrength[0] == 0 && yieldStrength[1] == 0)
             {
-                double stress;
-                if (direction < 6)
+                for (int i = 0; i < stresses.Count / 6; i++)
+                    {
+                        double stress;
+                        if (direction < 6)
+                        {
+                            stress = stresses[i * 6 + direction];
+                        }
+                        else
+                        {
+                            stress = VonMises[i];
+                        }
+                        if (stress > max)
+                        {
+                            max = stress;
+                    }
+                    else if (stress < min)
+                    {
+                        min = stress;
+                    }
+                }
+            }
+            else
+            {
+                if (yieldStrength[0] >= 0 && yieldStrength[1] <= 0)
                 {
-                    stress = stresses[i * 6 + direction];
+                    max = yieldStrength[0];
+                    min = yieldStrength[1];
+                }
+                else if (yieldStrength[1] >= 0 && yieldStrength[0] <= 0)
+                {
+                    max = yieldStrength[1];
+                    min = yieldStrength[0];
                 }
                 else
                 {
-                    stress = VonMises[i];
+                    AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, "Warning message here");
                 }
-                if (stress > max)
-                {
-                    max = stress;
-                }
-                else if (stress < min)
-                {
-                    min = stress;
-                }
+                
             }
+
+            
 
             List<double> colorList = new List<double>();
 

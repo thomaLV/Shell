@@ -42,7 +42,7 @@ namespace Shell
         {
             pManager.AddMeshParameter("Mesh", "M", "The Meshed shell structure", GH_ParamAccess.item);
             pManager.AddTextParameter("Boundary Conditions", "BDC", "Boundary Conditions in form x,y,z,vx,vy,vz,rx,ry,rz", GH_ParamAccess.list);
-            pManager.AddTextParameter("Material Properties", "Mat", "Material Properties: E,v,t,G", GH_ParamAccess.item, "210000,0.3,10");
+            pManager.AddTextParameter("Material Properties", "Mat", "Material Properties: E,v,t,G", GH_ParamAccess.item, "200000,0.3,10");
             pManager.AddTextParameter("Point Loads", "PL", "Load given as Vector [N]", GH_ParamAccess.list);
         }
 
@@ -420,6 +420,7 @@ namespace Shell
                 //Vector < double > Morleystress = C.Multiply(Morleystrains);
                 Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
                 Morleystress = tf.Multiply(Morleystress);
+                CSTstress = tf.Multiply(CSTstress);
 
                 for (int j = 0; j < 3; j++)
                 {
@@ -1112,7 +1113,7 @@ namespace Shell
             get
             {
 
-                return Properties.Resources.Calc;
+                return Properties.Resources.Calc1;
             }
         }
 
