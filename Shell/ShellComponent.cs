@@ -151,9 +151,7 @@ namespace Shell
             List<Point3d> uniqueNodes;
             GetUniqueNodes(vertices, out uniqueNodes);
             int gdofs = uniqueNodes.Count * 3 + edges.Count;
-
-            #endregion
-
+            
             //Interpret and set material parameters
             double E;       //Material Young's modulus, initial value 210000 [MPa]
             double G;       //Shear modulus, initial value 79300 [mm^4]
@@ -161,12 +159,16 @@ namespace Shell
             double t;       //Thickness of shell
             SetMaterial(mattxt, out E, out G, out nu, out t);
 
+            #endregion
+
             Vector<double> def_tot;
             Vector<double> reactions;
             Vector<double> internalStresses;
             Vector<double> internalStrains;
 
-            #region Prepares boundary conditions and loads for calculation
+            
+
+                #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
             Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, edges);
@@ -185,15 +187,19 @@ namespace Shell
             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, edges);
             #endregion
 
-            Matrix<double> K_red;
-            Vector<double> load_red;
+                Matrix<double> K_red;
+                Vector<double> load_red;
 
-            // Initiate the timer for the important parts
-            String time = "TrySolve Start:" + Environment.NewLine;
-            long timer = 0;
-            Stopwatch watch = new Stopwatch();
+                // Initiate the timer for the important parts
+                String time = "TrySolve Start:" + Environment.NewLine;
+                long timer = 0;
+                Stopwatch watch = new Stopwatch();
 
-            #region Create global and reduced stiffness matrix
+
+                if (startCalc)
+                {
+
+                #region Create global and reduced stiffness matrix
 
             //Create global stiffness matrix
             
@@ -218,8 +224,7 @@ namespace Shell
             
             #endregion
 
-            if (startCalc)
-            {
+            
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
                 //Calculate deformations
@@ -447,18 +452,47 @@ namespace Shell
             int newRC = Convert.ToInt16(bdc_value.Sum());
             K_red = Matrix<double>.Build.Dense(newRC, newRC, 0);
             load_red = Vector<double>.Build.Dense(newRC, 0);
+            //for (int i = 0, ii = 0; i < oldRC; i++)
+            //{
+            //    //is bdc_value in row i free?
+            //    if (bdc_value[i] == 1)
+            //    {                    
+            //        for (int j = 0, jj = 0; j < oldRC; j++)
+            //        {
+            //            //is bdc_value in col j free?
+            //            if (bdc_value[j] == 1)
+            //            {                                
+            //                //if yes, then add to new K
+            //                K_red[i - ii, j - jj] = (K[i, j]);
+            //            }
+            //            else
+            //            {
+            //                jj++;
+            //            }
+            //        }
+            //        //add to reduced load list
+            //        load_red[i - ii] = load[i];
+            //    }
+            //    else
+            //    {
+            //        ii++;
+            //    }
+            //}
+            double K_temp = 0;
             for (int i = 0, ii = 0; i < oldRC; i++)
             {
                 //is bdc_value in row i free?
                 if (bdc_value[i] == 1)
-                {                    
-                    for (int j = 0, jj = 0; j < oldRC; j++)
+                {
+                    for (int j = 0, jj = 0; j <= i; j++)
                     {
                         //is bdc_value in col j free?
                         if (bdc_value[j] == 1)
-                        {                                
+                        {
                             //if yes, then add to new K
-                            K_red[i - ii, j - jj] = (K[i, j]);
+                            K_temp = K[i, j];
+                            K_red[i - ii, j - jj] = K_temp;
+                            K_red[j - jj, i - ii] = K_temp;
                         }
                         else
                         {
