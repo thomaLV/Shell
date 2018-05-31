@@ -370,7 +370,7 @@ namespace Shell
         {
             get
             {
-                return Properties.Resources.Draw;
+                return Properties.Resources.Draw1;
             }
         }
 
