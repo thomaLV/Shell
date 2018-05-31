@@ -90,7 +90,6 @@ namespace Shell
 
             // Number of edges from Euler's formula
             int NoOfEdges = vertices.Count + faces.Count - 1;
-
             List<Line> edges = new List<Line>(NoOfEdges);
             #region Create edge list
             Vector<double> nakedEdge = Vector<double>.Build.Dense(NoOfEdges,1);
@@ -167,9 +166,7 @@ namespace Shell
             Vector<double> internalStrains;
             List<double> reac = new List<double>();
 
-
-
-                #region Prepares boundary conditions and loads for calculation
+            #region Prepares boundary conditions and loads for calculation
 
             //Interpret the BDC inputs (text) and create list of boundary condition (1/0 = free/clamped) for each dof.
             Vector<double> bdc_value = CreateBDCList(bdctxt, uniqueNodes, faces, vertices, edges);
@@ -188,18 +185,17 @@ namespace Shell
             List<double> load = CreateLoadList(loadtxt, momenttxt, uniqueNodes, faces, vertices, edges);
             #endregion
 
-                Matrix<double> K_red;
-                Vector<double> load_red;
+            Matrix<double> K_red;
+            Vector<double> load_red;
 
-                // Initiate the timer for the important parts
-                String time = "TrySolve Start:" + Environment.NewLine;
-                long timer = 0;
-                Stopwatch watch = new Stopwatch();
+            // Initiate the timer for the important parts
+            String time = "TrySolve Start:" + Environment.NewLine;
+            long timer = 0;
+            Stopwatch watch = new Stopwatch();
 
 
-                if (startCalc)
-                {
-
+            if (startCalc)
+            {
                 #region Create global and reduced stiffness matrix
 
             //Create global stiffness matrix
@@ -225,7 +221,6 @@ namespace Shell
             
             #endregion
 
-            
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
                 //Calculate deformations
@@ -249,19 +244,19 @@ namespace Shell
                 //{
                 //    reactions[faces.Count*3 + i] = MorleyMoments[i];
                 //}
-                reac = new List<double>(reactions);
-                for (int i = 0; i < MorleyMoments.Count; i++)
-                {
-                    if (reac.Count > uniqueNodes.Count*3 + i)
-                    {
-                        reac[uniqueNodes.Count + i] = MorleyMoments[i];
-                    }
-                    else
-                    {
-                        reac.Add(MorleyMoments[i]);
-                    }
-                    reac.Add(MorleyMoments[i]);
-                }
+                //reac = new List<double>(reactions);
+                //for (int i = 0; i < MorleyMoments.Count; i++)
+                //{
+                //    if (reac.Count > uniqueNodes.Count*3 + i)
+                //    {
+                //        reac[uniqueNodes.Count + i] = MorleyMoments[i];
+                //    }
+                //    else
+                //    {
+                //        reac.Add(MorleyMoments[i]);
+                //    }
+                //    reac.Add(MorleyMoments[i]);
+                //}
                 #endregion
             }
             else
@@ -274,7 +269,7 @@ namespace Shell
             }
 
             DA.SetDataList(0, def_tot);
-            DA.SetDataList(1, reac);
+            DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
             DA.SetDataList(3, internalStrains);
             DA.SetData(4, time.ToString());
@@ -462,7 +457,7 @@ namespace Shell
             Vector<double> def = Vector<double>.Build.Dense(bdc_value.Count);
             for (int i = 0, j = 0; i < bdc_value.Count; i++)
             {
-                if (bdc_value[i] == 1 && nakededges[i] == 0)
+                if (bdc_value[i] == 1)
                 {
                     def[i] = deformations_red[j];
                     j++;
@@ -599,7 +594,14 @@ namespace Shell
                 Matrix<double> Ke; // given as [x1 y1 z1 phi1 x2 y2 z2 phi2 x3 y3 z3 phi3]
                 Matrix<double> Be;
                 ElementStiffnessMatrix(xList, yList, zList, E, nu, t, out Ke, out Be);
-                B.SetSubMatrix(Bcount * 6, 0, Be);
+                for (int r = 0; r < 6; r++)
+                {
+                    for (int c = 0; c < 6; c++)
+                    {
+                        B[Bcount * 6 + r, c] = Be[r, c];
+                    }
+                }
+                //B.SetSubMatrix(Bcount * 6, 0, Be);
                 Bcount++;
                 BDefOrder.AddRange(new int[] { indexA * 3, indexA * 3 + 1, indexB * 3, indexB * 3 + 1, indexC * 3, indexC * 3 + 1, indexA * 3 + 2, indexB * 3 + 2, indexC * 3 + 2, nodeDofs + eindx[0], nodeDofs + eindx[1], nodeDofs + eindx[2] });
 
@@ -631,6 +633,17 @@ namespace Shell
                         // insert rotations for edges in correct place
                         //Rotation to rotation relation
                         KG[nodeDofs + eindx[row], nodeDofs + eindx[col]] += Ke[row * 4 + 3, col * 4 + 3];
+
+                        //Rotation to x relation lower left
+                        KG[nodeDofs + eindx[row], vindx[col] * 3] += Ke[row * 4 + 3, col * 4];
+                        //Rotation to x relation upper right
+                        KG[vindx[row] * 3, nodeDofs + eindx[col]] += Ke[row * 4, col * 4 + 3];
+
+                        //Rotation to y relation lower left
+                        KG[nodeDofs + eindx[row], vindx[col] * 3 + 1] += Ke[row * 4 + 3, col * 4 + 1];
+                        //Rotation to y relation upper right
+                        KG[vindx[row] * 3 + 1, nodeDofs + eindx[col]] += Ke[row * 4 + 1, col * 4 + 3];
+
                         //Rotation to z relation lower left
                         KG[nodeDofs + eindx[row], vindx[col] * 3 + 2] += Ke[row * 4 + 3, col * 4 + 2];
                         //Rotation to z relation upper right

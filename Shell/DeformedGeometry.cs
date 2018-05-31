@@ -26,6 +26,8 @@ namespace Shell
         static bool X = false;
         static bool Y = false;
         static bool VonMisesButton = false;
+        static bool RX = false;
+        static bool RY = false;
 
         //Method to allow c hanging of variables via GUI (see Component Visual)
         public static void setToggles(string s, bool i)
@@ -49,6 +51,14 @@ namespace Shell
             if (s == "VonMises")
             {
                 VonMisesButton = i;
+            }
+            if (s == "RX")
+            {
+                RX= i;
+            }
+            if (s == "RY")
+            {
+                RY = i;
             }
         }
 
@@ -145,13 +155,47 @@ namespace Shell
                     for (int j = 0; j < faces.Count; j++)
                     {
                         double sigma11 = stresses[j*6];
+                        if (sigma11 >= 0)
+                        {
+                            sigma11 += Math.Abs(stresses[j * 6 + 3]);
+                        }
+                        else
+                        {
+                            sigma11 += -Math.Abs(stresses[j * 6 + 3]);
+                        }
+
                         double sigma22 = stresses[j*6+1];
+                        if (sigma22 >= 0)
+                        {
+                            sigma22 += Math.Abs(stresses[j * 6 + 4]);
+                        }
+                        else
+                        {
+                            sigma22 += -Math.Abs(stresses[j * 6 + 4]);
+                        }
+
                         double sigma12 = stresses[j*6+2];
+                        if (sigma12 >= 0)
+                        {
+                            sigma12 += Math.Abs(stresses[j * 6 + 5]);
+                        }
+                        else
+                        {
+                            sigma12 += -Math.Abs(stresses[j * 6 + 5]);
+                        }
 
                         VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
                     }
                     
                     #endregion
+                }
+                else if (RX)
+                {
+                    dimension = 3;
+                }
+                else if (RY)
+                {
+                    dimension = 4;
                 }
 
                 Mesh coloredDefMesh = defmesh.DuplicateMesh();
@@ -374,8 +418,8 @@ namespace Shell
                 rec2.X = rec1.Right + 2;
 
                 Rectangle rec3 = rec2;
-                rec3.X = rec2.X;
-                rec3.Y = rec2.Bottom + 2;
+                rec3.X = rec1.X;
+                rec3.Y = rec1.Bottom + 2;
 
                 Rectangle rec4 = rec3;
                 rec4.X = rec3.X;
@@ -385,12 +429,22 @@ namespace Shell
                 rec5.X = rec4.X;
                 rec5.Y = rec4.Bottom + 2;
 
+                Rectangle rec6 = rec3;
+                rec6.X = rec5.Right + 2;
+                rec6.Y = rec3.Bottom + 2;
+
+                Rectangle rec7 = rec3;
+                rec7.X = rec6.X;
+                rec7.Y = rec6.Bottom + 2;
+
                 Bounds = rec0;
                 ButtonBounds = rec1;
                 ButtonBounds1 = rec2;
                 ButtonBounds2 = rec3;
                 ButtonBounds3 = rec4;
                 ButtonBounds4 = rec5;
+                ButtonBounds5 = rec6;
+                ButtonBounds6 = rec7;
 
             }
 
@@ -399,12 +453,16 @@ namespace Shell
             GH_Palette xColor = GH_Palette.Grey;
             GH_Palette yColor = GH_Palette.Grey;
             GH_Palette VonMisesColor = GH_Palette.Grey;
+            GH_Palette rxColor = GH_Palette.Grey;
+            GH_Palette ryColor = GH_Palette.Grey;
 
             private Rectangle ButtonBounds { get; set; }
             private Rectangle ButtonBounds1 { get; set; }
             private Rectangle ButtonBounds2 { get; set; }
             private Rectangle ButtonBounds3 { get; set; }
             private Rectangle ButtonBounds4 { get; set; }
+            private Rectangle ButtonBounds5 { get; set; }
+            private Rectangle ButtonBounds6 { get; set; }
 
             protected override void Render(GH_Canvas canvas, Graphics graphics, GH_CanvasChannel channel)
             {
@@ -454,6 +512,18 @@ namespace Shell
                         button5.Render(graphics, Selected, Owner.Locked, false);
                         button5.Dispose();
                     }
+                    if (setColor == true)
+                    {
+                        GH_Capsule button6 = GH_Capsule.CreateTextCapsule(ButtonBounds5, ButtonBounds5, rxColor, "RX Stresses", 2, 0);
+                        button6.Render(graphics, Selected, Owner.Locked, false);
+                        button6.Dispose();
+                    }
+                    if (setColor == true)
+                    {
+                        GH_Capsule button7 = GH_Capsule.CreateTextCapsule(ButtonBounds6, ButtonBounds6, ryColor, "RY Stresses", 2, 0);
+                        button7.Render(graphics, Selected, Owner.Locked, false);
+                        button7.Dispose();
+                    }
                 }
             }
 
@@ -486,6 +556,16 @@ namespace Shell
                     {
                         switchColor("VonMises");
                     }
+                    rec = ButtonBounds5;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("RX");
+                    }
+                    rec = ButtonBounds6;
+                    if (rec.Contains(e.CanvasLocation))
+                    {
+                        switchColor("RY");
+                    }
 
                     if (displayed == GH_Palette.Black) { DeformedGeometry.setToggles("Run", true); }
                     if (displayed == GH_Palette.Grey) { DeformedGeometry.setToggles("Run", false); }
@@ -497,6 +577,10 @@ namespace Shell
                     if (yColor == GH_Palette.Grey) { DeformedGeometry.setToggles("Y", false); }
                     if (VonMisesColor == GH_Palette.Black) { DeformedGeometry.setToggles("VonMises", true); }
                     if (VonMisesColor == GH_Palette.Grey) { DeformedGeometry.setToggles("VonMises", false); }
+                    if (rxColor == GH_Palette.Black) { DeformedGeometry.setToggles("RX", true); }
+                    if (rxColor == GH_Palette.Grey) { DeformedGeometry.setToggles("RX", false); }
+                    if (ryColor == GH_Palette.Black) { DeformedGeometry.setToggles("RY", true); }
+                    if (ryColor == GH_Palette.Grey) { DeformedGeometry.setToggles("RY", false); }
                     sender.Refresh();
                     Owner.ExpireSolution(true);
                     return GH_ObjectResponse.Handled;
@@ -520,6 +604,8 @@ namespace Shell
                         xColor = GH_Palette.Grey;
                         yColor = GH_Palette.Grey;
                         VonMisesColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Grey;
+                        ryColor = GH_Palette.Grey;
                     }
                     else { setcolor = GH_Palette.Black; }
                 }
@@ -531,6 +617,8 @@ namespace Shell
                         xColor = GH_Palette.Black;
                         yColor = GH_Palette.Grey;
                         VonMisesColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Grey;
+                        ryColor = GH_Palette.Grey;
                     }
                 }
                 if (button == "Y" && setcolor == GH_Palette.Black)
@@ -541,6 +629,8 @@ namespace Shell
                         yColor = GH_Palette.Black;
                         xColor = GH_Palette.Grey;
                         VonMisesColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Grey;
+                        ryColor = GH_Palette.Grey;
                     }
                 }
                 if (button == "VonMises" && setcolor == GH_Palette.Black)
@@ -551,6 +641,32 @@ namespace Shell
                         VonMisesColor = GH_Palette.Black;
                         xColor = GH_Palette.Grey;
                         yColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Grey;
+                        ryColor = GH_Palette.Grey;
+                    }
+                }
+                if (button == "RX" && setcolor == GH_Palette.Black)
+                {
+                    if (rxColor == GH_Palette.Black) { rxColor = GH_Palette.Grey; }
+                    else
+                    {
+                        xColor = GH_Palette.Grey;
+                        yColor = GH_Palette.Grey;
+                        VonMisesColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Black;
+                        ryColor = GH_Palette.Grey;
+                    }
+                }
+                if (button == "RY" && setcolor == GH_Palette.Black)
+                {
+                    if (ryColor == GH_Palette.Black) { ryColor = GH_Palette.Grey; }
+                    else
+                    {
+                        xColor = GH_Palette.Grey;
+                        yColor = GH_Palette.Grey;
+                        VonMisesColor = GH_Palette.Grey;
+                        rxColor = GH_Palette.Grey;
+                        ryColor = GH_Palette.Black;
                     }
                 }
             }

@@ -54,7 +54,8 @@ namespace Shell
         protected override void RegisterInputParams(GH_Component.GH_InputParamManager pManager)
         {
             pManager.AddPointParameter("Points", "P", "Points to apply Boundary Conditions", GH_ParamAccess.list);
-            pManager.AddMeshParameter("Meshes", "M", "Same input as for main calc component", GH_ParamAccess.item);
+            pManager.AddMeshParameter("Mesh", "M", "Give mesh if edges should be fixed", GH_ParamAccess.item);
+            pManager[1].Optional = true;
         }
 
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
@@ -76,7 +77,7 @@ namespace Shell
 
             //Set expected inputs from Indata and aborts with error message if input is incorrect
             if (!DA.GetDataList(0, pointList)) return;
-            if (!DA.GetData(1, ref mesh)) return;           //sets inputted mesh into variable
+            if (!DA.GetData(1, ref mesh));           //sets inputted mesh into variable
             #endregion
 
             for (int i = 0; i < pointList.Count; i++)
@@ -87,152 +88,158 @@ namespace Shell
                 temp_point.Z = Math.Round(pointList[i].Z, 4);
                 pointList[i] = temp_point;
             }
-    
-            foreach (var face in mesh.Faces)
-            {
-                faces.Add(face);
-            }
 
-            foreach (var vertice in mesh.Vertices)
-            {
-                Point3d temp_vertice = new Point3d();
-                temp_vertice.X = Math.Round(vertice.X, 4);
-                temp_vertice.Y = Math.Round(vertice.Y, 4);
-                temp_vertice.Z = Math.Round(vertice.Z, 4);
-                vertices.Add(temp_vertice);
-            }
 
-            int NoOfEdges = vertices.Count + faces.Count - 1;
-            List<Line> edges = new List<Line>(NoOfEdges);
-            foreach (var face in faces)
+            List<Line> edges = new List<Line>();
+            #region If mesh is given and rotations should be fixed
+            if (mesh.IsValid && rx == 0)
             {
-                Point3d vA = vertices[face.A];
-                Point3d vB = vertices[face.B];
-                Point3d vC = vertices[face.C];
-                Line lineAB = new Line(vA, vB);
-                Line lineBA = new Line(vB, vA);
-                Line lineCB = new Line(vC, vB);
-                Line lineBC = new Line(vB, vC);
-                Line lineAC = new Line(vA, vC);
-                Line lineCA = new Line(vC, vA);
+                foreach (var face in mesh.Faces)
+                {
+                    faces.Add(face);
+                }
 
-                if (!edges.Contains(lineAB) && !edges.Contains(lineBA))
+                foreach (var vertice in mesh.Vertices)
                 {
-                    edges.Add(lineAB);
+                    Point3d temp_vertice = new Point3d();
+                    temp_vertice.X = Math.Round(vertice.X, 4);
+                    temp_vertice.Y = Math.Round(vertice.Y, 4);
+                    temp_vertice.Z = Math.Round(vertice.Z, 4);
+                    vertices.Add(temp_vertice);
                 }
-                if (!edges.Contains(lineCB) && !edges.Contains(lineBC))
+                int NoOfEdges = vertices.Count + faces.Count - 1;
+                edges = new List<Line>(NoOfEdges);
+                foreach (var face in faces)
                 {
-                    edges.Add(lineBC);
-                }
-                if (!edges.Contains(lineAC) && !edges.Contains(lineCA))
-                {
-                    edges.Add(lineAC);
+                    Point3d vA = vertices[face.A];
+                    Point3d vB = vertices[face.B];
+                    Point3d vC = vertices[face.C];
+                    Line lineAB = new Line(vA, vB);
+                    Line lineBA = new Line(vB, vA);
+                    Line lineCB = new Line(vC, vB);
+                    Line lineBC = new Line(vB, vC);
+                    Line lineAC = new Line(vA, vC);
+                    Line lineCA = new Line(vC, vA);
+
+                    if (!edges.Contains(lineAB) && !edges.Contains(lineBA))
+                    {
+                        edges.Add(lineAB);
+                    }
+                    if (!edges.Contains(lineCB) && !edges.Contains(lineBC))
+                    {
+                        edges.Add(lineBC);
+                    }
+                    if (!edges.Contains(lineAC) && !edges.Contains(lineCA))
+                    {
+                        edges.Add(lineAC);
+                    }
                 }
             }
+                #endregion
 
             #region Find edge indexes if fixed rotation and Format output
-            string BDCString = x + "," + y + "," + z;
+                string BDCString = x + "," + y + "," + z;
 
 
-            if (rx == 1)
-            {
-                for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), no fixed rotations
+                if (rx == 1 || !mesh.IsValid)
                 {
-                    pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
-                }
-            }
-            else
-            {
-                int rot = -1;
-                List<int> edgeindexrot = new List<int>();
-                List<List<int>> mIndices = GetMeshIndices(pointList, faces, vertices);
-                for (int i = 0; i < pointList.Count; i++)
-                {
-                    if (mIndices.Count == 0) { break; }
-                    int facenum = -1;
-                    if (mIndices[i].Count == 1)
-                    {
-                        facenum = mIndices[i][0];
-                    }
-                    else if (mIndices[i].Count == 2)
-                    {
-                        facenum = mIndices[i][1];
-                    }
-                    else
-                    {
-                        break;
-                    }
-                    List<Point3d> connectedPoints = new List<Point3d>();
-                    for (int j = 0; j < pointList.Count; j++)
-                    {
-                        if (j != i && mIndices[j][0] == facenum)
-                        {
-                            connectedPoints.Add(pointList[j]);
-                        }
-                    }
-                    Line bdcline;
-                    if (connectedPoints.Count >= 1)
-                    {
-                        bdcline = new Line(pointList[i], connectedPoints[0]);
-                        if (edges.Contains(bdcline))
-                        {
-                            rot = edges.IndexOf(bdcline);
-                        }
-                        bdcline = new Line(connectedPoints[0], pointList[i]);
-                        if (edges.Contains(bdcline))
-                        {
-                            rot = edges.IndexOf(bdcline);
-                        }
-                        if (!edgeindexrot.Contains(rot) && rot != -1)
-                        {
-                            edgeindexrot.Add(rot);
-                        }
-                    }
-                                                            
-                    if (connectedPoints.Count == 2)
-                    {
-                        bdcline = new Line(pointList[i], connectedPoints[1]);
-                        if (edges.Contains(bdcline))
-                        {
-                            rot = edges.IndexOf(bdcline);
-                        }
-                        bdcline = new Line(connectedPoints[1], pointList[i]);
-                        if (edges.Contains(bdcline))
-                        {
-                            rot = edges.IndexOf(bdcline);
-                        }
-                        if (!edgeindexrot.Contains(rot) && rot != -1)
-                        {
-                            edgeindexrot.Add(rot);
-                        }
-                    }                   
-                }
-
-                for (int i = 0; i <= pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), no fixed rotations
-                {
-                    if (i < pointList.Count)
+                    for (int i = 0; i < pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), no fixed rotations
                     {
                         pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
                     }
-                    else
+                }
+                else
+                {
+                    int rot = -1;
+                    List<int> edgeindexrot = new List<int>();
+                    List<List<int>> mIndices = GetMeshIndices(pointList, faces, vertices);
+                    for (int i = 0; i < pointList.Count; i++)
                     {
-                        string rotindex = null;
-                        foreach (var item in edgeindexrot)
+                        if (mIndices.Count == 0) { break; }
+                        int facenum = -1;
+                        if (mIndices[i].Count == 1)
                         {
-                            if (item == edgeindexrot[0])
+                            facenum = mIndices[i][0];
+                        }
+                        else if (mIndices[i].Count == 2)
+                        {
+                            facenum = mIndices[i][1];
+                        }
+                        else
+                        {
+                            break;
+                        }
+                        List<Point3d> connectedPoints = new List<Point3d>();
+                        for (int j = 0; j < pointList.Count; j++)
+                        {
+                            if (j != i && mIndices[j][0] == facenum)
                             {
-                                rotindex += item;
-                            }
-                            else
-                            {
-                                rotindex = rotindex + ',' + item;
+                                connectedPoints.Add(pointList[j]);
                             }
                         }
-                        pointInStringFormat.Add(rotindex);
+                        Line bdcline;
+                        if (connectedPoints.Count >= 1)
+                        {
+                            bdcline = new Line(pointList[i], connectedPoints[0]);
+                            if (edges.Contains(bdcline))
+                            {
+                                rot = edges.IndexOf(bdcline);
+                            }
+                            bdcline = new Line(connectedPoints[0], pointList[i]);
+                            if (edges.Contains(bdcline))
+                            {
+                                rot = edges.IndexOf(bdcline);
+                            }
+                            if (!edgeindexrot.Contains(rot) && rot != -1)
+                            {
+                                edgeindexrot.Add(rot);
+                            }
+                        }
+
+                        if (connectedPoints.Count == 2)
+                        {
+                            bdcline = new Line(pointList[i], connectedPoints[1]);
+                            if (edges.Contains(bdcline))
+                            {
+                                rot = edges.IndexOf(bdcline);
+                            }
+                            bdcline = new Line(connectedPoints[1], pointList[i]);
+                            if (edges.Contains(bdcline))
+                            {
+                                rot = edges.IndexOf(bdcline);
+                            }
+                            if (!edgeindexrot.Contains(rot) && rot != -1)
+                            {
+                                edgeindexrot.Add(rot);
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i <= pointList.Count; i++)   //Format stringline for all points (identical boundary conditions for all points), no fixed rotations
+                    {
+                        if (i < pointList.Count)
+                        {
+                            pointInStringFormat.Add(pointList[i].X + "," + pointList[i].Y + "," + pointList[i].Z + ":" + BDCString);
+                        }
+                        else
+                        {
+                            string rotindex = null;
+                            foreach (var item in edgeindexrot)
+                            {
+                                if (item == edgeindexrot[0])
+                                {
+                                    rotindex += item;
+                                }
+                                else
+                                {
+                                    rotindex = rotindex + ',' + item;
+                                }
+                            }
+                            pointInStringFormat.Add(rotindex);
+                        }
                     }
                 }
-            }
-            #endregion
+                #endregion
 
             DA.SetDataList(0, pointInStringFormat);
         } //End of main program
