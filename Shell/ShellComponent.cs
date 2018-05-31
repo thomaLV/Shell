@@ -165,8 +165,9 @@ namespace Shell
             Vector<double> reactions;
             Vector<double> internalStresses;
             Vector<double> internalStrains;
+            List<double> reac = new List<double>();
 
-            
+
 
                 #region Prepares boundary conditions and loads for calculation
 
@@ -241,9 +242,26 @@ namespace Shell
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
 
+                Vector<double> MorleyMoments = Vector<double>.Build.Dense(faces.Count*3);
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
-                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains);
-
+                CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains, out MorleyMoments);
+                //for (int i = 0; i < faces.Count; i++)
+                //{
+                //    reactions[faces.Count*3 + i] = MorleyMoments[i];
+                //}
+                reac = new List<double>(reactions);
+                for (int i = 0; i < MorleyMoments.Count; i++)
+                {
+                    if (reac.Count > uniqueNodes.Count*3 + i)
+                    {
+                        reac[uniqueNodes.Count + i] = MorleyMoments[i];
+                    }
+                    else
+                    {
+                        reac.Add(MorleyMoments[i]);
+                    }
+                    reac.Add(MorleyMoments[i]);
+                }
                 #endregion
             }
             else
@@ -256,17 +274,18 @@ namespace Shell
             }
 
             DA.SetDataList(0, def_tot);
-            DA.SetDataList(1, reactions);
+            DA.SetDataList(1, reac);
             DA.SetDataList(2, internalStresses);
             DA.SetDataList(3, internalStrains);
             DA.SetData(4, time.ToString());
         }
 
-        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains)
+        private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains, out Vector<double> MorleyMoments)
         {
             //preallocating lists
             internalStresses = Vector<double>.Build.Dense(faces.Count*6);
             internalStrains = Vector<double>.Build.Dense(faces.Count*6);
+            MorleyMoments = Vector<double>.Build.Dense(faces.Count*3);
             Matrix <double> C = Matrix<double>.Build.Dense(3, 3);
             C[0, 0] = 1;
             C[0, 1] = nu;
@@ -421,7 +440,8 @@ namespace Shell
 
                 // Calculate Morley strain and stress
                 Vector<double> Morleystrains = -t * 0.5 * (MorleyB.Multiply(Morleyv));
-                Vector<double> Morleystress = t*t/6.0 * C.Multiply(Morleystrains);
+                Vector<double> Morleystress = C.Multiply(Morleystrains);
+                Vector<double> MorleyMoment = t * t / 6.0 * C.Multiply(Morleystrains);
 
                 //Morleystress = tf.Multiply(Morleystress);
                 //CSTstress = tf.Multiply(CSTstress);
@@ -432,6 +452,7 @@ namespace Shell
                     internalStrains[i * 6 + 3 + j] = Morleystrains[j];
                     internalStresses[i * 6 + j] = CSTstress[j];
                     internalStresses[i * 6 + 3 + j] = Morleystress[j];
+                    MorleyMoments[i * 3 + j] = MorleyMoment[j];
                 }
             }
         }

@@ -179,7 +179,12 @@ namespace Shell
             double max = 0;
             double min = 0;
 
-            if (yieldStrength[0] == 0 && yieldStrength[1] == 0)
+            if (yieldStrength.Count == 1 && yieldStrength[0] > 1)
+            {
+                max = yieldStrength[0];
+                min = -yieldStrength[0];
+            }
+            else if ((yieldStrength.Count == 1 && yieldStrength[0] == 0) || (yieldStrength[0] == 0 && yieldStrength[1] == 0) || yieldStrength.Count == 0)
             {
                 for (int i = 0; i < stresses.Count / 6; i++)
                     {
