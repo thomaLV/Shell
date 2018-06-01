@@ -9,8 +9,8 @@ namespace Shell
     public class SetLoads : GH_Component
     {
         public SetLoads()
-          : base("SetLoads Shell", "SL",
-              "Description",
+          : base("PointLoads Shell", "PL",
+              "Point loads to apply to a shell structure",
               "Koala", "Shell")
         {
         }
