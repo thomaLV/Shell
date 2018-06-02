@@ -79,52 +79,91 @@ namespace Shell
         protected override void RegisterOutputParams(GH_Component.GH_OutputParamManager pManager)
         {
             pManager.AddMeshParameter("Deformed Geometry", "Def.G.", "Deformed Geometry as mesh", GH_ParamAccess.item);
+            pManager.AddNumberParameter("Von Mises stress", "VMS", "The Von Mises yield criterion", GH_ParamAccess.list);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
         {
+            #region Fetch input
+            //Expected inputs and outputs
+            List<double> def = new List<double>();
+            List<double> stresses = new List<double>();
+            List<double> VonMises = new List<double>();
+            Mesh mesh = new Mesh();
+            double scale = 10;
+            List<double> yieldStrength = new List<double>();
+            List<Line> defGeometry = new List<Line>();
+            List<Point3d> defPoints = new List<Point3d>();
+
+            int[] h = new int[] { 0, 0, 0 };
+            //Set expected inputs from Indata
+            if (!DA.GetDataList(0, def)) return;
+            if (!DA.GetDataList(1, stresses)) return;
+            if (!DA.GetData(2, ref mesh)) return;
+            if (!DA.GetData(3, ref scale)) return;
+            if (!DA.GetDataList(4, yieldStrength)) return;
+                #endregion
+
+            #region Decompose Mesh and initiate the new deformed mesh defmesh
+
+            List<Point3d> vertices = new List<Point3d>();
+            List<MeshFace> faces = new List<MeshFace>();
+
+            foreach (var vertice in mesh.Vertices)
+            {
+                vertices.Add(vertice);
+            }
+            foreach (var face in mesh.Faces)
+            {
+                faces.Add(face);
+            }
+
+            Mesh defmesh = new Mesh();
+
+            defmesh.Faces.AddFaces(mesh.Faces); // new mesh without vertices
+
+            #endregion
+
+            #region Von Mises
+            for (int j = 0; j < faces.Count; j++)
+            {
+                double sigma11 = stresses[j * 6];
+                if (sigma11 >= 0)
+                {
+                    sigma11 += Math.Abs(stresses[j * 6 + 3]);
+                }
+                else
+                {
+                    sigma11 += -Math.Abs(stresses[j * 6 + 3]);
+                }
+
+                double sigma22 = stresses[j * 6 + 1];
+                if (sigma22 >= 0)
+                {
+                    sigma22 += Math.Abs(stresses[j * 6 + 4]);
+                }
+                else
+                {
+                    sigma22 += -Math.Abs(stresses[j * 6 + 4]);
+                }
+
+                double sigma12 = stresses[j * 6 + 2];
+                if (sigma12 >= 0)
+                {
+                    sigma12 += Math.Abs(stresses[j * 6 + 5]);
+                }
+                else
+                {
+                    sigma12 += -Math.Abs(stresses[j * 6 + 5]);
+                }
+
+                VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
+            }
+
+            #endregion
+
             if (startDef)
             {
-                #region Fetch input
-                //Expected inputs and outputs
-                List<double> def = new List<double>();
-                List<double> stresses = new List<double>();
-                List<double> VonMises = new List<double>();
-                Mesh mesh = new Mesh();
-                double scale = 10;
-                List<double> yieldStrength = new List<double>();
-                List<Line> defGeometry = new List<Line>();
-                List<Point3d> defPoints = new List<Point3d>();
-
-                int[] h = new int[] { 0, 0, 0 };
-                //Set expected inputs from Indata
-                if (!DA.GetDataList(0, def)) return;
-                if (!DA.GetDataList(1, stresses)) return;
-                if (!DA.GetData(2, ref mesh)) return;
-                if (!DA.GetData(3, ref scale)) return;
-                if (!DA.GetDataList(4, yieldStrength)) return;
-                #endregion
-
-                #region Decompose Mesh and initiate the new deformed mesh defmesh
-
-                List<Point3d> vertices = new List<Point3d>();
-                List<MeshFace> faces = new List<MeshFace>();
-
-                foreach (var vertice in mesh.Vertices)
-                {
-                    vertices.Add(vertice);
-                }
-                foreach (var face in mesh.Faces)
-                {
-                    faces.Add(face);
-                }
-
-                Mesh defmesh = new Mesh();
-
-                defmesh.Faces.AddFaces(mesh.Faces); // new mesh without vertices
-
-                #endregion
-
                 #region apply deformations to vertices and add them to defmesh
 
                 List<Point3d> new_vertices = new List<Point3d>(); // list of translated vertices
@@ -151,43 +190,6 @@ namespace Shell
                 else if (VonMisesButton)
                 {
                     dimension = 7;
-                    #region Von Mises
-                    for (int j = 0; j < faces.Count; j++)
-                    {
-                        double sigma11 = stresses[j*6];
-                        if (sigma11 >= 0)
-                        {
-                            sigma11 += Math.Abs(stresses[j * 6 + 3]);
-                        }
-                        else
-                        {
-                            sigma11 += -Math.Abs(stresses[j * 6 + 3]);
-                        }
-
-                        double sigma22 = stresses[j*6+1];
-                        if (sigma22 >= 0)
-                        {
-                            sigma22 += Math.Abs(stresses[j * 6 + 4]);
-                        }
-                        else
-                        {
-                            sigma22 += -Math.Abs(stresses[j * 6 + 4]);
-                        }
-
-                        double sigma12 = stresses[j*6+2];
-                        if (sigma12 >= 0)
-                        {
-                            sigma12 += Math.Abs(stresses[j * 6 + 5]);
-                        }
-                        else
-                        {
-                            sigma12 += -Math.Abs(stresses[j * 6 + 5]);
-                        }
-
-                        VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
-                    }
-                    
-                    #endregion
                 }
                 else if (RX)
                 {
@@ -201,13 +203,13 @@ namespace Shell
                 Mesh coloredDefMesh = defmesh.DuplicateMesh();
                 if (setColor && (stresses.Count > 1 || (stresses.Count == 1 && stresses[0] != 0) || VonMises.Count > 1 || (VonMises.Count == 1 && VonMises[0] != 0)) && (dimension < 8))
                 {
-                    // Direction can be 0:x
+                    // Direction can be 0 -> x ...
                     SetMeshColors(defmesh, stresses, VonMises, new_vertices, faces, dimension, yieldStrength, out coloredDefMesh);
                 }
-                 
-                
+                                 
                 //Set output data
                 DA.SetData(0, coloredDefMesh);
+                DA.SetDataList(1, VonMises);
             }
         }   //End of main program
 

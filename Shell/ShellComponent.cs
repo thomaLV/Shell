@@ -261,10 +261,10 @@ namespace Shell
             }
             else
             {
-                def_tot = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                def_tot = Vector<double>.Build.Dense(1);
                 reactions = def_tot;
 
-                internalStresses = Vector<double>.Build.Dense(bdc_value.Count * 6);
+                internalStresses = Vector<double>.Build.Dense(1);
                 internalStrains = internalStresses;
             }
 
@@ -356,7 +356,7 @@ namespace Shell
                 Matrix<double> T_T = T.Transpose();
                 #endregion
 
-                #region Extract B matrices fro CST and Morley
+                #region Extract B matrices from CST and Morley
                 Matrix< double> CSTB = Matrix<double>.Build.Dense(3, 6);
                 Matrix<double> MorleyB = Matrix<double>.Build.Dense(3, 6);
                 for (int row = 0; row < 3; row++)
