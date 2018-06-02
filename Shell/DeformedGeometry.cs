@@ -124,43 +124,46 @@ namespace Shell
 
             #endregion
 
-            #region Von Mises
-            for (int j = 0; j < faces.Count; j++)
+            if (stresses.Count > 0 && !(stresses.Count == 1 && stresses[0] == 0))
             {
-                double sigma11 = stresses[j * 6];
-                if (sigma11 >= 0)
+                #region Von Mises
+                for (int j = 0; j < faces.Count; j++)
                 {
-                    sigma11 += Math.Abs(stresses[j * 6 + 3]);
-                }
-                else
-                {
-                    sigma11 += -Math.Abs(stresses[j * 6 + 3]);
+                    double sigma11 = stresses[j * 6];
+                    if (sigma11 >= 0)
+                    {
+                        sigma11 += Math.Abs(stresses[j * 6 + 3]);
+                    }
+                    else
+                    {
+                        sigma11 += -Math.Abs(stresses[j * 6 + 3]);
+                    }
+
+                    double sigma22 = stresses[j * 6 + 1];
+                    if (sigma22 >= 0)
+                    {
+                        sigma22 += Math.Abs(stresses[j * 6 + 4]);
+                    }
+                    else
+                    {
+                        sigma22 += -Math.Abs(stresses[j * 6 + 4]);
+                    }
+
+                    double sigma12 = stresses[j * 6 + 2];
+                    if (sigma12 >= 0)
+                    {
+                        sigma12 += Math.Abs(stresses[j * 6 + 5]);
+                    }
+                    else
+                    {
+                        sigma12 += -Math.Abs(stresses[j * 6 + 5]);
+                    }
+
+                    VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
                 }
 
-                double sigma22 = stresses[j * 6 + 1];
-                if (sigma22 >= 0)
-                {
-                    sigma22 += Math.Abs(stresses[j * 6 + 4]);
-                }
-                else
-                {
-                    sigma22 += -Math.Abs(stresses[j * 6 + 4]);
-                }
-
-                double sigma12 = stresses[j * 6 + 2];
-                if (sigma12 >= 0)
-                {
-                    sigma12 += Math.Abs(stresses[j * 6 + 5]);
-                }
-                else
-                {
-                    sigma12 += -Math.Abs(stresses[j * 6 + 5]);
-                }
-
-                VonMises.Add(Math.Sqrt(sigma11 * sigma11 - sigma11 * sigma22 + sigma22 * sigma22 + 3 * sigma12 * sigma12));
+                #endregion
             }
-
-            #endregion
 
             if (startDef)
             {
