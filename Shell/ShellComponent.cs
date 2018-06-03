@@ -58,7 +58,7 @@ namespace Shell
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             // Initiate the timer for the important parts
-            String time = "TrySolve Start" + Environment.NewLine;
+            String time = "TrySolve Start ";
             long timer = 0;
             Stopwatch watch = new Stopwatch();
             watch.Start();
@@ -176,10 +176,10 @@ namespace Shell
 
             watch.Stop();
             
-            timer = watch.ElapsedMilliseconds - timer;
-            time += "Fetch Inputs:" + timer.ToString() + Environment.NewLine;
+            timer = watch.ElapsedMilliseconds;
+            time += faces.Count + Environment.NewLine + "Fetch Inputs: " + timer.ToString() + Environment.NewLine;
 
-            watch.Start();
+            watch.Restart();
 
             #region Prepares boundary conditions and loads for calculation
 
@@ -202,10 +202,10 @@ namespace Shell
 
             watch.Stop();
 
-            timer = watch.ElapsedMilliseconds - timer;
-            time += "Prep bdc and load:" + timer.ToString() + Environment.NewLine;
+            timer = watch.ElapsedMilliseconds;
+            time += "Prep bdc and load: " + timer.ToString() + Environment.NewLine;
 
-            watch.Start();
+            watch.Restart();
 
             if (startCalc)
             {
@@ -220,17 +220,17 @@ namespace Shell
                 GlobalStiffnessMatrix(faces, vertices, edges, uniqueNodes, gdofs, E, G, nu, t, out K_tot, out B, out BOrder);
 
                 watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
+                timer = watch.ElapsedMilliseconds;
                 time += "Global stiffness matrix assembly: " + timer.ToString() + Environment.NewLine;
 
                 //Create reduced K-matrix and reduced load list (removed clamped dofs)
 
-                watch.Start();
+                watch.Restart();
 
                 CreateReducedGlobalStiffnessMatrix(bdc_value, K_tot, load, uniqueNodes, nakededge, out K_red, out load_red);
 
                 watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
+                timer = watch.ElapsedMilliseconds;
                 time += "Reduce global stiffness matrix: " + timer.ToString() + Environment.NewLine;
 
                 #endregion
@@ -239,46 +239,47 @@ namespace Shell
                 #region Calculate deformations, reaction forces and internal strains and stresses
 
                 //Calculate deformations
-                watch.Start();
+                watch.Restart();
 
                 Vector<double> def_reduced = Vector<double>.Build.Dense(K_red.ColumnCount);
                 def_reduced = K_red.Cholesky().Solve(load_red);
-
+                
                 
                 watch.Stop();
 
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Cholesky solve:" + timer.ToString() + Environment.NewLine;
+                timer = watch.ElapsedMilliseconds;
+                time += "Cholesky solve: " + timer.ToString() + Environment.NewLine;
 
-                watch.Start();
+                watch.Restart();
 
                 //Add the clamped dofs (= 0) to the deformations list
                 def_tot = RestoreTotalDeformationVector(def_reduced, bdc_value, nakededge);
 
                 watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Restore deformation vector:" + timer.ToString() + Environment.NewLine;
+                timer = watch.ElapsedMilliseconds;
+                time += "Restore deformation vector: " + timer.ToString() + Environment.NewLine;
 
-                watch.Start();
+                timer = 0;
+                watch.Restart();
 
                 //Calculate the reaction forces from the deformations
                 reactions = K_tot.Multiply(def_tot);
 
                 watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Calculate Reaction forces:" + timer.ToString() + Environment.NewLine;
+                timer = watch.ElapsedMilliseconds;
+                time += "Calculate Reaction forces: " + timer.ToString() + Environment.NewLine;
 
-                watch.Start();
+                watch.Restart();
 
                 Vector<double> MorleyMoments = Vector<double>.Build.Dense(faces.Count*3);
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
                 CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains, out MorleyMoments);
 
                 watch.Stop();
-                timer = watch.ElapsedMilliseconds - timer;
-                time += "Calculate strains and stresses:" + timer.ToString() + Environment.NewLine;
+                timer = watch.ElapsedMilliseconds;
+                time += "Calculate strains and stresses: " + timer.ToString() + Environment.NewLine;
 
-                watch.Start();
+                watch.Restart();
 
                 //for (int i = 0; i < faces.Count; i++)
                 //{
@@ -307,17 +308,15 @@ namespace Shell
                 internalStresses = Vector<double>.Build.Dense(1);
                 internalStrains = internalStresses;
             }
+            watch.Stop();
+
+            timer = watch.ElapsedMilliseconds;
+            time += "Format output: " + timer.ToString() + Environment.NewLine;
 
             DA.SetDataList(0, def_tot);
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
             DA.SetDataList(3, internalStrains);
-
-            watch.Stop();
-
-            timer = watch.ElapsedMilliseconds - timer;
-            time += "Format output:" + timer.ToString() + Environment.NewLine;
-
             DA.SetData(4, time.ToString());
         }
 

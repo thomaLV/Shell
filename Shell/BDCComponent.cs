@@ -77,7 +77,7 @@ namespace Shell
 
             //Set expected inputs from Indata and aborts with error message if input is incorrect
             if (!DA.GetDataList(0, pointList)) return;
-            if (!DA.GetData(1, ref mesh));           //sets inputted mesh into variable
+            DA.GetData(1, ref mesh);         //sets inputted mesh into variable
             #endregion
 
             for (int i = 0; i < pointList.Count; i++)
@@ -92,7 +92,7 @@ namespace Shell
 
             List<Line> edges = new List<Line>();
             #region If mesh is given and rotations should be fixed
-            if (mesh.IsValid && rx == 0)
+            if (mesh.Faces.Count != 0 && rx == 0)
             {
                 foreach (var face in mesh.Faces)
                 {
