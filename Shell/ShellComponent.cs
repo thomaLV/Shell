@@ -52,7 +52,7 @@ namespace Shell
             pManager.AddNumberParameter("Reaction Forces", "R", "Reaction Forces", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element Stresses", "Strs", "The Stress in each element", GH_ParamAccess.list);
             pManager.AddNumberParameter("Element Strains", "Strn", "The Strain in each element", GH_ParamAccess.list);
-            pManager.AddTextParameter("Part Timer", "", "", GH_ParamAccess.item);
+            //pManager.AddTextParameter("Part Timer", "", "", GH_ParamAccess.item);
         }
 
         protected override void SolveInstance(IGH_DataAccess DA)
@@ -173,6 +173,7 @@ namespace Shell
             List<double> reac = new List<double>();
             Matrix<double> K_red;
             Vector<double> load_red;
+            Vector<double> MorleyMoments = Vector<double>.Build.Dense(faces.Count * 3);
 
             watch.Stop();
             
@@ -271,7 +272,6 @@ namespace Shell
 
                 watch.Restart();
 
-                Vector<double> MorleyMoments = Vector<double>.Build.Dense(faces.Count*3);
                 // strains and stresses as [eps_x eps_y gamma_xy eps_xb eps_yb gamma_xyb ... repeat for each face...]^T b for bending
                 CalculateInternalStrainsAndStresses(def_tot, vertices, faces, B, BOrder, uniqueNodes, edges, E, t, nu, out internalStresses, out internalStrains, out MorleyMoments);
 
@@ -317,7 +317,100 @@ namespace Shell
             DA.SetDataList(1, reactions);
             DA.SetDataList(2, internalStresses);
             DA.SetDataList(3, internalStrains);
-            DA.SetData(4, time.ToString());
+            //DA.SetData(4, time.ToString());
+
+            #region Output data for comparison
+            //double xmin = 0;
+            //double xmax = 0;
+            //double zmin = 0;
+            //double zmax = 0;
+
+            //for (int i = 0; i < uniqueNodes.Count*3; i=i+3)
+            //{
+            //    if (xmax < def_tot[i])
+            //    {
+            //        xmax = def_tot[i];
+            //    }
+            //    if (xmin > def_tot[i])
+            //    {
+            //        xmin = def_tot[i];
+            //    }
+            //    if (zmax < def_tot[i+2])
+            //    {
+            //        zmax = def_tot[i+2];
+            //    }
+            //    if (zmin > def_tot[i+2])
+            //    {
+            //        zmin = def_tot[i+2];
+            //    }
+            //}
+
+            //double s1 = 0;
+            //double s2 = 0;
+
+            //for (int j = 0; j < faces.Count; j++)
+            //{
+            //    double sigma11 = internalStresses[j * 6];
+            //    if (sigma11 >= 0)
+            //    {
+            //        sigma11 += Math.Abs(internalStresses[j * 6 + 3]);
+            //    }
+            //    else
+            //    {
+            //        sigma11 += -Math.Abs(internalStresses[j * 6 + 3]);
+            //    }
+
+            //    double sigma22 = internalStresses[j * 6 + 1];
+            //    if (sigma22 >= 0)
+            //    {
+            //        sigma22 += Math.Abs(internalStresses[j * 6 + 4]);
+            //    }
+            //    else
+            //    {
+            //        sigma22 += -Math.Abs(internalStresses[j * 6 + 4]);
+            //    }
+
+            //    double sigma12 = internalStresses[j * 6 + 2];
+            //    if (sigma12 >= 0)
+            //    {
+            //        sigma12 += Math.Abs(internalStresses[j * 6 + 5]);
+            //    }
+            //    else
+            //    {
+            //        sigma12 += -Math.Abs(internalStresses[j * 6 + 5]);
+            //    }
+            //    double s1_temp = (sigma11 + sigma22) / 2 + Math.Sqrt(Math.Pow((sigma11 - sigma22), 2) / 4 + Math.Pow(sigma12, 2));
+            //    double s2_temp = (sigma11 + sigma22) / 2 - Math.Sqrt(Math.Pow((sigma11 - sigma22), 2) / 4 + Math.Pow(sigma12, 2));
+
+            //    if (s1_temp > s1)
+            //    {
+            //        s1 = s1_temp;
+            //    }
+            //    if (s2_temp < s2)
+            //    {
+            //        s2 = s2_temp;
+            //    }
+            //}
+
+            //string test = "xmin: " + xmin + " xmax: " + xmax + " zmin: " + zmin + " zmax: " + zmax + " s1: " + s1 + " s2: " + s2 + " Elements: " + faces.Count;
+            #endregion
+
+            //double test = MorleyMoments.Maximum();
+            string test = "navierstress: " + internalStresses.Maximum() + " elements; " + faces.Count;
+            //append result to txt-file (at buildpath)
+            try
+            {
+                using (System.IO.StreamWriter file =
+                new System.IO.StreamWriter(@"D:\Users\Kristian\OneDrive\skole\NTNU Masteroppgave\FEM trening\Shell3D\ShellPlateTest.txt", true))
+                {
+                    file.WriteLine(test);
+                }
+            }
+            //create new file if solverTest.txt does not exist
+            catch (System.IO.DirectoryNotFoundException)
+            {
+                System.IO.File.WriteAllText(@"D:\Users\Kristian\OneDrive\skole\NTNU Masteroppgave\FEM trening\Shell3D\ShellPlateTest.txt", time);
+            }
         }
 
         private void CalculateInternalStrainsAndStresses(Vector<double> def, List<Point3d> vertices, List<MeshFace> faces, Matrix<double> B, List<int> BOrder, List<Point3d> uniqueNodes, List<Line> edges, double E, double t, double nu, out Vector<double> internalStresses, out Vector<double> internalStrains, out Vector<double> MorleyMoments)
@@ -522,12 +615,12 @@ namespace Shell
             //{
             //    //is bdc_value in row i free?
             //    if (bdc_value[i] == 1)
-            //    {                    
+            //    {
             //        for (int j = 0, jj = 0; j < oldRC; j++)
             //        {
             //            //is bdc_value in col j free?
             //            if (bdc_value[j] == 1)
-            //            {                                
+            //            {
             //                //if yes, then add to new K
             //                K_red[i - ii, j - jj] = (K[i, j]);
             //            }
@@ -1257,12 +1350,12 @@ namespace Shell
                     button.Render(graphics, Selected, false, false);
                     button.Dispose();
                 }
-                if (channel == GH_CanvasChannel.Objects)
-                {
-                    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
-                    button2.Render(graphics, Selected, Owner.Locked, false);
-                    button2.Dispose();
-                }
+                //if (channel == GH_CanvasChannel.Objects)
+                //{
+                //    GH_Capsule button2 = GH_Capsule.CreateTextCapsule(ButtonBounds2, ButtonBounds2, yColor, "Run Test", 2, 0);
+                //    button2.Render(graphics, Selected, Owner.Locked, false);
+                //    button2.Dispose();
+                //}
             }
 
             public override GH_ObjectResponse RespondToMouseDown(GH_Canvas sender, GH_CanvasMouseEvent e)

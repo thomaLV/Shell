@@ -56,9 +56,9 @@ namespace Shell
             if (loadList.Count == 1 && anglexz.Count == 1)              //loads and angles are identical for all points 
             {
                 load = -1 * loadList[0];                                //negativ load for z-dir
-                xvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Cos(anglexy[0] * Math.PI / 180), 2);
-                yvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Sin(anglexy[0] * Math.PI / 180), 2);
-                zvec = Math.Round(load * Math.Sin(anglexz[0] * Math.PI / 180), 2);
+                xvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Cos(anglexy[0] * Math.PI / 180), 5);
+                yvec = Math.Round(load * Math.Cos(anglexz[0] * Math.PI / 180) * Math.Sin(anglexy[0] * Math.PI / 180), 5);
+                zvec = Math.Round(load * Math.Sin(anglexz[0] * Math.PI / 180), 5);
 
                 vectorString = xvec + "," + yvec + "," + zvec;
                 for (int i = 0; i < pointList.Count; i++)               //adds identical load to all points in pointList
