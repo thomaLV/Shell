@@ -576,9 +576,6 @@ namespace Shell
                 Vector<double> Morleystress = C.Multiply(Morleystrains);
                 Vector<double> MorleyMoment = t * t / 6.0 * C.Multiply(Morleystrains);
 
-                //Morleystress = tf.Multiply(Morleystress);
-                //CSTstress = tf.Multiply(CSTstress);
-
                 for (int j = 0; j < 3; j++)
                 {
                     internalStrains[i * 6 + j] = CSTstrains[j];
